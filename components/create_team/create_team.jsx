@@ -25,11 +25,6 @@ export default class CreateTeam extends React.PureComponent {
         currentChannel: PropTypes.object,
 
         /*
-         * Boolean value that determines whether server has a valid Enterprise license
-         */
-        isLicensed: PropTypes.bool.isRequired,
-
-        /*
          * String containing the custom branding's text
          */
         customDescriptionText: PropTypes.string,
@@ -66,7 +61,6 @@ export default class CreateTeam extends React.PureComponent {
             currentChannel,
             currentTeam,
             customDescriptionText,
-            isLicensed,
             match,
             siteName,
         } = this.props;
@@ -87,7 +81,6 @@ export default class CreateTeam extends React.PureComponent {
                     <div className='signup-team__container'>
                         <SiteNameAndDescription
                             customDescriptionText={customDescriptionText}
-                            isLicensed={isLicensed}
                             siteName={siteName}
                         />
                         <div className='signup__content'>
@@ -100,7 +93,7 @@ export default class CreateTeam extends React.PureComponent {
                                             updateParent={this.updateParent}
                                             {...props}
                                         />
-                                )}
+                                    )}
                                 />
                                 <Route
                                     path={`${this.props.match.url}/team_url`}
@@ -110,7 +103,7 @@ export default class CreateTeam extends React.PureComponent {
                                             updateParent={this.updateParent}
                                             {...props}
                                         />
-                                )}
+                                    )}
                                 />
                                 <Redirect to={`${match.url}/display_name`}/>
                             </Switch>

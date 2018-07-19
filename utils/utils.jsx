@@ -7,8 +7,11 @@ import {FormattedMessage} from 'react-intl';
 
 import {Client4} from 'mattermost-redux/client';
 import {Posts} from 'mattermost-redux/constants';
-import {getLicense, getConfig} from 'mattermost-redux/selectors/entities/general';
 import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
+import {
+    blendColors,
+    changeOpacity,
+} from 'mattermost-redux/utils/theme_utils';
 import {displayUsername} from 'mattermost-redux/utils/user_utils';
 
 import {browserHistory} from 'utils/browser_history';
@@ -25,16 +28,6 @@ import icon50 from 'images/icon50x50.png';
 import iconWS from 'images/icon_WS.png';
 import {getSiteURL} from 'utils/url';
 import store from 'stores/redux_store.jsx';
-
-export function isEmail(email) {
-    // writing a regex to match all valid email addresses is really, really hard. (see http://stackoverflow.com/a/201378)
-    // this regex ensures:
-    // - at least one character that is not a space, comma, or @ symbol
-    // - followed by a single @ symbol
-    // - followed by at least one character that is not a space, comma, or @ symbol
-    // this prevents <Outlook Style> outlook.style@domain.com addresses and multiple comma-separated addresses from being accepted
-    return (/^[^ ,@]+@[^ ,@]+$/).test(email);
-}
 
 export function isMac() {
     return navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -64,6 +57,12 @@ export function cmdOrCtrlPressed(e, allowAlt = false) {
 }
 
 export function isKeyPressed(event, key) {
+    if (event.keyCode === Constants.KeyCodes.COMPOSING[1]) {
+        return false;
+    }
+    if (typeof event.code !== 'undefined' && event.code !== 'Unidentified' && key[2]) {
+        return typeof key[2] === 'function' ? key[2](event.code) : event.code === key[2];
+    }
     if (typeof event.key !== 'undefined' && event.key !== 'Unidentified' && event.key !== 'Dead') {
         return event.key === key[0] || event.key === key[0].toUpperCase();
     }
@@ -115,25 +114,11 @@ export function isSystemAdmin(roles) {
     return false;
 }
 
-export function getCookie(name) {
-    var value = '; ' + document.cookie;
-    var parts = value.split('; ' + name + '=');
-    if (parts.length === 2) {
-        return parts.pop().split(';').shift();
-    }
-    return '';
-}
-
 var requestedNotificationPermission = false;
 
-export function notifyMe(title, body, channel, teamId, duration, silent) {
+export function notifyMe(title, body, channel, teamId, silent) {
     if (!('Notification' in window)) {
         return;
-    }
-
-    let notificationDuration = Constants.DEFAULT_NOTIFICATION_DURATION;
-    if (duration != null) {
-        notificationDuration = duration;
     }
 
     if (Notification.permission === 'granted' || (Notification.permission === 'default' && !requestedNotificationPermission)) {
@@ -148,7 +133,7 @@ export function notifyMe(title, body, channel, teamId, duration, silent) {
                             icon = iconWS;
                         }
 
-                        const notification = new Notification(title, {body, tag: body, icon, requireInteraction: notificationDuration === 0, silent});
+                        const notification = new Notification(title, {body, tag: body, icon, requireInteraction: false, silent});
                         notification.onclick = () => {
                             window.focus();
                             if (channel && (channel.type === Constants.DM_CHANNEL || channel.type === Constants.GM_CHANNEL)) {
@@ -162,11 +147,9 @@ export function notifyMe(title, body, channel, teamId, duration, silent) {
                             }
                         };
 
-                        if (notificationDuration > 0) {
-                            setTimeout(() => {
-                                notification.close();
-                            }, notificationDuration);
-                        }
+                        setTimeout(() => {
+                            notification.close();
+                        }, Constants.DEFAULT_NOTIFICATION_DURATION);
                     } catch (e) {
                         console.error(e); //eslint-disable-line no-console
                     }
@@ -346,7 +329,7 @@ export function areObjectsEqual(x, y) {
         }
     }
 
-    for (p in x) {
+    for (p in x) { //eslint-disable-line guard-for-in
         if (y.hasOwnProperty(p) !== x.hasOwnProperty(p)) {
             return false;
         } else if (typeof y[p] !== typeof x[p]) {
@@ -506,21 +489,6 @@ export function getIconClassName(fileTypeIn) {
     return 'generic';
 }
 
-export function splitFileLocation(fileLocation) {
-    var fileSplit = fileLocation.split('.');
-
-    var ext = '';
-    if (fileSplit.length > 1) {
-        ext = fileSplit[fileSplit.length - 1];
-        fileSplit.splice(fileSplit.length - 1, 1);
-    }
-
-    var filePath = fileSplit.join('.');
-    var filename = filePath.split('/')[filePath.split('/').length - 1];
-
-    return {ext, name: filename, path: filePath};
-}
-
 export function sortFilesByName(files) {
     const locale = LocalizationStore.getLocale();
     return Array.from(files).sort((a, b) => a.name.localeCompare(b.name, locale, {numeric: true}));
@@ -560,7 +528,7 @@ export function applyTheme(theme) {
         changeCss('@media(max-width: 768px){.app__body .search__icon svg', 'stroke:' + theme.sidebarText);
         changeCss('.app__body .sidebar--left .sidebar__switcher span', 'color:' + theme.sidebarText);
         changeCss('.app__body .sidebar--left .sidebar__switcher button svg', 'fill:' + theme.sidebarText);
-        changeCss('.app__body .sidebar__switcher button', 'background:' + changeOpacity(theme.sidebarText, 0.08));
+        changeCss('.channel-header .channel-header_plugin-dropdown a, .app__body .sidebar__switcher button', 'background:' + changeOpacity(theme.sidebarText, 0.08));
     }
 
     if (theme.sidebarUnreadText) {
@@ -601,7 +569,7 @@ export function applyTheme(theme) {
         changeCss('.app__body .modal .modal-header .modal-title, .app__body .modal .modal-header .modal-title .name, .app__body .modal .modal-header button.close', 'color:' + theme.sidebarHeaderTextColor);
         changeCss('.app__body #navbar .navbar-default .navbar-brand .dropdown-toggle', 'color:' + theme.sidebarHeaderTextColor);
         changeCss('.app__body #navbar .navbar-default .navbar-toggle .icon-bar', 'background:' + theme.sidebarHeaderTextColor);
-        changeCss('.app__body .post-list__timestamp > div, .app__body .multi-teams .team-sidebar .team-wrapper .team-container a:hover .team-btn, .app__body .multi-teams .team-sidebar .team-wrapper .team-container.active .team-btn', 'border-color:' + changeOpacity(theme.sidebarHeaderTextColor, 0.5));
+        changeCss('.app__body .post-list__timestamp > div, .app__body .multi-teams .team-sidebar .team-wrapper .team-container a:hover .team-btn__content, .app__body .multi-teams .team-sidebar .team-wrapper .team-container.active .team-btn__content', 'border-color:' + changeOpacity(theme.sidebarHeaderTextColor, 0.5));
         changeCss('@media(max-width: 768px){.app__body .search-bar__container', 'color:' + theme.sidebarHeaderTextColor);
         changeCss('.app__body .navbar-right__icon', 'background:' + changeOpacity(theme.sidebarHeaderTextColor, 0.2));
         changeCss('.app__body .navbar-right__icon:hover, .app__body .navbar-right__icon:focus', 'background:' + changeOpacity(theme.sidebarHeaderTextColor, 0.3));
@@ -678,6 +646,24 @@ export function applyTheme(theme) {
         changeCss('.app__body .shortcut-key, .app__body .post-list__new-messages-below', 'color:' + theme.centerChannelBg);
         changeCss('.app__body .emoji-picker, .app__body .emoji-picker__search', 'background:' + theme.centerChannelBg);
         changeCss('.app__body .nav-tabs, .app__body .nav-tabs > li.active > a', 'background:' + theme.centerChannelBg);
+        changeCss('.app__body .post .file-view--single', `background:${theme.centerChannelBg}`);
+
+        changeCss(
+            '.app__body .post-list__table .post:not(.current--user) .post-collapse__gradient, ' +
+            '.app__body .sidebar-right__body .post:not(.current--user) .post-collapse__gradient, ' +
+            '.app__body .post-list__table .post.post--compact .post-collapse__gradient, ' +
+            '.app__body .sidebar-right__body .post.post--compact .post-collapse__gradient',
+            `background:linear-gradient(${changeOpacity(theme.centerChannelBg, 0)}, ${theme.centerChannelBg})`,
+        );
+        changeCss(
+            '.app__body .post-list__table .post:not(.current--user) .post-collapse__show-more, ' +
+            '.app__body .sidebar-right__body .post:not(.current--user) .post-collapse__show-more, ' +
+            '.app__body .post-list__table .post.post--compact .post-collapse__show-more, ' +
+            '.app__body .sidebar-right__body .post.post--compact .post-collapse__show-more',
+            `background-color:${theme.centerChannelBg}`,
+        );
+        changeCss('.app__body .post-collapse__show-more-button', `background:${theme.centerChannelBg}`);
+        changeCss('.app__body .post-collapse__show-more-button:hover', `color:${theme.centerChannelBg}`);
     }
 
     if (theme.centerChannelColor) {
@@ -704,15 +690,16 @@ export function applyTheme(theme) {
         changeCss('.app__body .dropdown-menu, .app__body .popover ', 'box-shadow: 0 17px 50px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 12px 15px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
         changeCss('.app__body .dropdown-menu, .app__body .popover ', '-moz-box-shadow: 0 17px 50px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 12px 15px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
         changeCss('.app__body .dropdown-menu, .app__body .popover ', '-webkit-box-shadow: 0 17px 50px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 12px 15px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
-        changeCss('.app__body .shadow--2', 'box-shadow: 0 3px 20px 0' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
-        changeCss('.app__body .shadow--2', '-moz-box-shadow: 0  3px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
-        changeCss('.app__body .shadow--2', '-webkit-box-shadow: 0  3px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
+        changeCss('.app__body .shadow--2', 'box-shadow: 0 20px 30px 0' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
+        changeCss('.app__body .shadow--2', '-moz-box-shadow: 0  20px 30px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
+        changeCss('.app__body .shadow--2', '-webkit-box-shadow: 0  20px 30px 0 ' + changeOpacity(theme.centerChannelColor, 0.1) + ', 0 14px 20px 0 ' + changeOpacity(theme.centerChannelColor, 0.1));
         changeCss('.app__body .shortcut-key, .app__body .post__body hr, .app__body .loading-screen .loading__content .round, .app__body .tutorial__circles .circle', 'background:' + theme.centerChannelColor);
         changeCss('.app__body .channel-header .heading', 'color:' + theme.centerChannelColor);
-        changeCss('.app__body .markdown__table tbody tr:nth-child(2n)', 'background:' + changeOpacity(theme.centerChannelColor, 0.07));
+        changeCss('.app__body .col__reply > button:hover, .app__body .col__reply > a:hover, .app__body .col__reply > div:hover, .app__body .markdown__table tbody tr:nth-child(2n)', 'background:' + changeOpacity(theme.centerChannelColor, 0.07));
         changeCss('.app__body .channel-header__info .header-dropdown__icon', 'color:' + changeOpacity(theme.centerChannelColor, 0.8));
         changeCss('.app__body .post-create__container .post-create-body .send-button.disabled i, .app__body .channel-header #member_popover', 'color:' + changeOpacity(theme.centerChannelColor, 0.4));
         changeCss('.app__body .channel-header .pinned-posts-button svg', 'fill:' + changeOpacity(theme.centerChannelColor, 0.6));
+        changeCss('.app__body .channel-header .channel-header_plugin-dropdown svg', 'fill:' + changeOpacity(theme.centerChannelColor, 0.6));
         changeCss('.app__body .custom-textarea, .app__body .custom-textarea:focus, .app__body .file-preview, .app__body .post-image__details, .app__body .sidebar--right .sidebar-right__body, .app__body .markdown__table th, .app__body .markdown__table td, .app__body .suggestion-list__content, .app__body .modal .modal-content, .app__body .modal .settings-modal .settings-table .settings-content .divider-light, .app__body .webhooks__container, .app__body .dropdown-menu, .app__body .modal .modal-header', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.2));
         changeCss('.app__body .popover.bottom>.arrow', 'border-bottom-color:' + changeOpacity(theme.centerChannelColor, 0.25));
         changeCss('.app__body .btn.btn-transparent, .app__body .search-help-popover .search-autocomplete__divider span, .app__body .suggestion-list__divider > span', 'color:' + changeOpacity(theme.centerChannelColor, 0.7));
@@ -729,6 +716,7 @@ export function applyTheme(theme) {
         changeCss('@media(min-width: 768px){.app__body .search-bar__container .search__form .search-bar, .app__body .form-control', 'color:' + theme.centerChannelColor);
         changeCss('.app__body .input-group-addon, .app__body .form-control, .app__body .post-create__container .post-body__actions > span, .app__body .post-create__container .post-body__actions > a', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.1));
         changeCss('@media(min-width: 768px){.app__body .post-list__table .post-list__content .dropdown-menu a:hover, .dropdown-menu > li > button:hover', 'background:' + changeOpacity(theme.centerChannelColor, 0.1));
+        changeCss('.app__body .dropdown-menu div > a:focus, .app__body .dropdown-menu div > a:hover, .dropdown-menu li > a:focus, .app__body .dropdown-menu li > a:hover', 'background:' + changeOpacity(theme.centerChannelColor, 0.1));
         changeCss('.app__body .form-control:focus', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.2));
         changeCss('.app__body .attachment .attachment__content, .app__body .attachment-actions button', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.3));
         changeCss('.app__body .attachment-actions button:focus, .app__body .attachment-actions button:hover', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.5));
@@ -746,11 +734,11 @@ export function applyTheme(theme) {
         changeCss('.app__body .attachment__body__wrap.btn-close', 'background:' + changeOpacity(theme.centerChannelColor, 0.08));
         changeCss('.app__body .attachment__body__wrap.btn-close', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.2));
         changeCss('@media(min-width: 768px){.app__body .post:hover, .app__body .more-modal__list .more-modal__row:hover, .app__body .modal .settings-modal .settings-table .settings-content .section-min:hover', 'background:' + changeOpacity(theme.centerChannelColor, 0.08));
+        changeCss('@media(min-width: 768px){.app__body .post.current--user:hover .post__body ', 'background: none;');
         changeCss('.app__body .more-modal__row.more-modal__row--selected, .app__body .date-separator.hovered--before:after, .app__body .date-separator.hovered--after:before, .app__body .new-separator.hovered--after:before, .app__body .new-separator.hovered--before:after', 'background:' + changeOpacity(theme.centerChannelColor, 0.07));
         changeCss('@media(min-width: 768px){.app__body .suggestion-list__content .command:hover, .app__body .mentions__name:hover, .app__body .dropdown-menu>li>a:focus, .app__body .dropdown-menu>li>a:hover', 'background:' + changeOpacity(theme.centerChannelColor, 0.15));
         changeCss('.app__body .suggestion--selected, .app__body .emoticon-suggestion:hover, .app__body .bot-indicator', 'background:' + changeOpacity(theme.centerChannelColor, 0.15));
         changeCss('code, .app__body .form-control[disabled], .app__body .form-control[readonly], .app__body fieldset[disabled] .form-control', 'background:' + changeOpacity(theme.centerChannelColor, 0.1));
-        changeCss('@media(min-width: 960px){.app__body .post.current--user:hover .post__body ', 'background: none;');
         changeCss('.app__body .sidebar--right', 'color:' + theme.centerChannelColor);
         changeCss('.app__body .search-help-popover .search-autocomplete__item:hover, .app__body .modal .settings-modal .settings-table .settings-content .appearance-section .theme-elements__body', 'background:' + changeOpacity(theme.centerChannelColor, 0.05));
         changeCss('.app__body .search-help-popover .search-autocomplete__item.selected', 'background:' + changeOpacity(theme.centerChannelColor, 0.15));
@@ -770,8 +758,8 @@ export function applyTheme(theme) {
         changeCss('.app__body .post-reaction:not(.post-reaction--current-user)', 'color:' + changeOpacity(theme.centerChannelColor, 0.7));
         changeCss('.app__body .emoji-picker', 'color:' + theme.centerChannelColor);
         changeCss('.app__body .emoji-picker', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.2));
-        changeCss('.app__body .emoji-picker__preview, .app__body .emoji-picker__items, .app__body .emoji-picker__search-container', 'border-top-color:' + changeOpacity(theme.centerChannelColor, 0.2));
-        changeCss('.app__body .emoji-picker__items', 'background-color:' + changeOpacity(theme.centerChannelColor, 0.05));
+        changeCss('.app__body .emoji-picker__search-icon', 'color:' + changeOpacity(theme.centerChannelColor, 0.4));
+        changeCss('.app__body .emoji-picker__preview, .app__body .emoji-picker__items, .app__body .emoji-picker__search-container', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.2));
         changeCss('.emoji-picker__category .fa:hover', 'color:' + changeOpacity(theme.centerChannelColor, 0.8));
         changeCss('.app__body .emoji-picker__category, .app__body .emoji-picker__category:focus, .app__body .emoji-picker__category:hover', 'color:' + changeOpacity(theme.centerChannelColor, 0.3));
         changeCss('.app__body .emoji-picker__category--selected, .app__body .emoji-picker__category--selected:focus, .app__body .emoji-picker__category--selected:hover', 'color:' + theme.centerChannelColor);
@@ -779,6 +767,123 @@ export function applyTheme(theme) {
         changeCss('.app__body .emoji-picker-items__container .emoji-picker__item.selected', 'background-color:' + changeOpacity(theme.centerChannelColor, 0.8));
         changeCss('.app__body .icon__postcontent_picker:hover', 'color:' + changeOpacity(theme.centerChannelColor, 0.8));
         changeCss('.app__body .popover', 'border-color:' + changeOpacity(theme.centerChannelColor, 0.07));
+        changeCss('.app__body .emoji-picker .nav-tabs li a', 'fill:' + theme.centerChannelColor);
+        changeCss('.app__body .post .post-collapse__show-more-button', `border-color:${changeOpacity(theme.centerChannelColor, 0.1)}`);
+        changeCss('.app__body .post .post-collapse__show-more-line', `background-color:${changeOpacity(theme.centerChannelColor, 0.1)}`);
+
+        if (theme.centerChannelBg) {
+            const ownPostBg = blendColors(theme.centerChannelBg, theme.centerChannelColor, 0.05);
+            const hoveredPostBg = blendColors(theme.centerChannelBg, theme.centerChannelColor, 0.08);
+
+            // Apply a gradient to fade out the text in a collapsed post
+            changeCss(
+                '.app__body .post-list__table .post.current--user:not(.post--compact):not(:hover):not(.post--hovered):not(.post--highlight) .post-collapse__gradient, ' +
+                '.app__body .sidebar-right__body .post.current--user:not(.post--compact):not(:hover):not(.post--hovered):not(.post--highlight) .post-collapse__gradient, ' +
+                '.app__body #thread--root .post-collapse__gradient',
+                `background:linear-gradient(${changeOpacity(ownPostBg, 0)}, ${ownPostBg})`,
+            );
+            changeCss(
+                '.app__body .post-list__table .post.current--user:not(.post--compact):not(:hover):not(.post--hovered):not(.post--highlight) .post-collapse__show-more, ' +
+                '.app__body .sidebar-right__body .post.current--user:not(.post--compact):not(:hover):not(.post--hovered):not(.post--highlight) .post-collapse__show-more, ' +
+                '.app__body #thread--root .post-collapse__show-more',
+                `background:${ownPostBg}`,
+            );
+
+            changeCss(
+                '@media(min-width: 768px){.app__body .post-list__table .post:hover .post-collapse__gradient, ' +
+                '.app__body .sidebar-right__body .post:hover .post-collapse__gradient',
+                `background:linear-gradient(${changeOpacity(hoveredPostBg, 0)}, ${hoveredPostBg})`,
+            );
+            changeCss(
+                '@media(min-width: 768px){.app__body .post-list__table .post:hover .post-collapse__show-more, ' +
+                '.app__body .sidebar-right__body .post:hover .post-collapse__show-more',
+                `background:${hoveredPostBg}`,
+            );
+            changeCss(
+                '.app__body .post-list__table .post.post--hovered .post-collapse__gradient, ' +
+                '.app__body .sidebar-right__body .post.post--hovered .post-collapse__gradient',
+                `background:linear-gradient(${changeOpacity(hoveredPostBg, 0)}, ${hoveredPostBg})`,
+            );
+            changeCss(
+                '.app__body .post-list__table .post.post--hovered .post-collapse__show-more, ' +
+                '.app__body .sidebar-right__body .post.post--hovered .post-collapse__show-more',
+                `background:${hoveredPostBg}`,
+            );
+
+            // Apply a background behind the file attachments to cover any overflowing text in a collapsed post
+            changeCss(
+                '.app__body .post.current--user:not(.post--compact) .post-image__columns, ' +
+                '.app__body .post.current--user:not(.post--compact) .file-view--single, ' +
+                '.app__body .post--root.post--thread .post-image__columns, ' +
+                '.app__body .post--root.post--thread .file-view--single',
+                `background:${ownPostBg}`
+            );
+
+            changeCss(
+                '@media(min-width: 768px){.app__body .post-list__table .post:hover .post-image__columns, ' +
+                '.app__body .post-list__table .post:hover .file-view--single, ' +
+                '.app__body .post-right-comments-container .post:hover .post-image__columns, ' +
+                '.app__body .post-right-comments-container .post:hover .file-view--single, ' +
+                '.app__body .search-items-container .post:hover .post-image__columns, ' +
+                '.app__body .search-items-container .post:hover .file-view--single',
+                `background:${hoveredPostBg}`
+            );
+            changeCss(
+                '.app__body .post-list__table .post.post--hovered .post-image__columns, ' +
+                '.app__body .post-list__table .post.post--hovered .file-view--single, ' +
+                '.app__body .post-right-comments-container .post.post--hovered .post-image__columns, ' +
+                '.app__body .post-right-comments-container .post.post--hovered .file-view--single, ' +
+                '.app__body .search-items-container .post.post--hovered .post-image__columns, ' +
+                '.app__body .search-items-container .post.post--hovered .file-view--single',
+                `background:${hoveredPostBg}`
+            );
+
+            if (theme.mentionHighlightBg) {
+                const highlightBg = blendColors(theme.centerChannelBg, theme.mentionHighlightBg, 0.5);
+                const ownPostHighlightBg = blendColors(highlightBg, theme.centerChannelColor, 0.05);
+
+                changeCss(
+                    '.app__body .post-list__table .post:not(.current--user).post--highlight .post-collapse__gradient, ' +
+                    '.app__body .post-list__table .post.post--compact.post--highlight .post-collapse__gradient',
+                    `background:linear-gradient(${changeOpacity(highlightBg, 0)}, ${highlightBg})`,
+                );
+                changeCss(
+                    '.app__body .post-list__table .post:not(.current--user).post--highlight .post-collapse__show-more, ' +
+                    '.app__body .post-list__table .post.post--compact.post--highlight .post-collapse__show-more, ' +
+                    '.app__body .post-list__table .post:not(.current--user).post--highlight .post-image__columns, ' +
+                    '.app__body .post-list__table .post.post--compact.post--highlight .post-image__columns, ' +
+                    '.app__body .post-list__table .post:not(.current--user).post--highlight .file-view--single, ' +
+                    '.app__body .post-list__table .post.post--compact.post--highlight .file-view--single',
+                    `background:${highlightBg}`,
+                );
+
+                changeCss(
+                    '.app__body .post-list__table .post.current--user.post--highlight:not(.post--compact) .post-collapse__gradient',
+                    `background:linear-gradient(${changeOpacity(ownPostHighlightBg, 0)}, ${ownPostHighlightBg})`,
+                );
+                changeCss(
+                    '.app__body .post-list__table .post.current--user.post--highlight:not(.post--compact) .post-collapse__show-more, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight:not(.post--compact) .post-image__columns, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight:not(.post--compact) .file-view--single',
+                    `background:${ownPostHighlightBg}`,
+                );
+
+                changeCss(
+                    '.app__body .post-list__table .post.current--user.post--highlight:hover .post-collapse__gradient, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight.post--hovered .post-collapse__gradient',
+                    `background:linear-gradient(${changeOpacity(highlightBg, 0)}, ${highlightBg})`,
+                );
+                changeCss(
+                    '.app__body .post-list__table .post.current--user.post--highlight:hover .post-collapse__show-more, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight.post--hovered .post-collapse__show-more, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight:hover .post-image__columns, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight.post--hovered .post-image__columns, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight:hover .file-view--single, ' +
+                    '.app__body .post-list__table .post.current--user.post--highlight.post--hovered .file-view--single',
+                    `background:${highlightBg}`,
+                );
+            }
+        }
     }
 
     if (theme.newMessageSeparator) {
@@ -787,9 +892,9 @@ export function applyTheme(theme) {
     }
 
     if (theme.linkColor) {
-        changeCss('.app__body .webrtc__header:not(.offline) button:hover, .app__body .post-add-reaction:hover .post-reaction, .app__body .channel-header .channel-header__favorites.inactive:hover, .app__body .channel-header__links > a.active, .app__body a, .app__body a:focus, .app__body a:hover, .app__body .channel-header__links > .color--link.active, .app__body .color--link, .app__body a:focus, .app__body .color--link:hover, .app__body .btn, .app__body .btn:focus, .app__body .btn:hover', 'color:' + theme.linkColor);
+        changeCss('.app__body .channel-header .channel-header__icon.active, .app__body .channel-header .channel-header__icon:hover, .app__body .webrtc__header:not(.offline) button:hover, .app__body .post-add-reaction:hover .post-reaction, .app__body .channel-header .channel-header__favorites.inactive:hover, .app__body .channel-header__links > a.active, .app__body a, .app__body a:focus, .app__body a:hover, .app__body .channel-header__links > .color--link.active, .app__body .color--link, .app__body a:focus, .app__body .color--link:hover, .app__body .btn, .app__body .btn:focus, .app__body .btn:hover', 'color:' + theme.linkColor);
         changeCss('.app__body .attachment .attachment__container', 'border-left-color:' + changeOpacity(theme.linkColor, 0.5));
-        changeCss('.app__body .member-list__popover .more-modal__list .more-modal__row:hover', 'background:' + changeOpacity(theme.linkColor, 0.08));
+        changeCss('.app__body .channel-header .channel-header_plugin-dropdown a:hover, .app__body .member-list__popover .more-modal__list .more-modal__row:hover', 'background:' + changeOpacity(theme.linkColor, 0.08));
         changeCss('.app__body .channel-header__links .icon:hover, .app__body .channel-header__links > a.active .icon, .app__body .post .flag-icon__container.visible, .app__body .post .reacticon__container, .app__body .post .comment-icon__container, .app__body .post .post__reply', 'fill:' + theme.linkColor);
         changeCss('@media(min-width: 768px){.app__body .search__form.focused .search__icon svg', 'stroke:' + theme.linkColor);
         changeCss('.app__body .channel-header__links .icon:hover, .app__body .post .flag-icon__container.visible, .app__body .post .comment-icon__container, .app__body .post .post__reply', 'fill:' + theme.linkColor);
@@ -799,11 +904,14 @@ export function applyTheme(theme) {
         changeCss('.app__body .channel-header .channel-header__icon:hover .icon--stroke svg', 'stroke:' + theme.linkColor);
         changeCss('.app__body .post-reaction.post-reaction--current-user', 'background:' + changeOpacity(theme.linkColor, 0.1));
         changeCss('.app__body .post-add-reaction:hover .post-reaction, .app__body .post-reaction.post-reaction--current-user', 'border-color:' + changeOpacity(theme.linkColor, 0.4));
-        changeCss('.app__body .member-list__popover .more-modal__list .more-modal__row:hover, .app__body .channel-header .channel-header__icon:hover, .app__body .channel-header .channel-header__icon.active, .app__body .search-bar__container .search__form.focused', 'border-color:' + theme.linkColor);
+        changeCss('.app__body .channel-header .channel-header_plugin-dropdown a:hover, .app__body .member-list__popover .more-modal__list .more-modal__row:hover, .app__body .channel-header .channel-header__icon:hover, .app__body .channel-header .channel-header__icon.active, .app__body .search-bar__container .search__form.focused', 'border-color:' + theme.linkColor);
+        changeCss('.app__body .channel-header .channel-header_plugin-dropdown a:hover svg', 'fill:' + theme.linkColor);
         changeCss('.app__body .post-reaction.post-reaction--current-user', 'color:' + theme.linkColor);
         changeCss('.app__body .channel-header .dropdown-toggle:hover .heading, .app__body .channel-header .dropdown-toggle:hover .header-dropdown__icon, .app__body .channel-header__title .open .heading, .app__body .channel-header__info .channel-header__title .open .header-dropdown__icon, .app__body .channel-header__title .open .heading, .app__body .channel-header__info .channel-header__title .open .heading', 'color:' + theme.linkColor);
         changeCss('.emoji-picker__container .icon--emoji.active svg', 'fill:' + theme.linkColor);
-        changeCss('.sidebar--right--expanded .sidebar--right__expand', 'color:' + theme.linkColor);
+        changeCss('.app__body .channel-header .channel-header_plugin-dropdown a:hover .fa, .sidebar--right--expanded .sidebar--right__expand', 'color:' + theme.linkColor);
+        changeCss('.app__body .post .post-collapse__show-more', `color:${theme.linkColor}`);
+        changeCss('.app__body .post .post-collapse__show-more-button:hover', `background-color:${theme.linkColor}`);
     }
 
     if (theme.buttonBg) {
@@ -811,6 +919,8 @@ export function applyTheme(theme) {
         changeCss('.app__body .system-notice__logo svg', 'fill:' + theme.buttonBg);
         changeCss('.app__body .post-image__details .post-image__download svg:hover', 'border-color:' + theme.buttonBg);
         changeCss('.app__body .btn.btn-primary:hover, .app__body .btn.btn-primary:active, .app__body .btn.btn-primary:focus', 'background:' + changeColor(theme.buttonBg, -0.15));
+        changeCss('.app__body .emoji-picker .nav-tabs li.active a, .app__body .emoji-picker .nav-tabs li a:hover', 'fill:' + theme.buttonBg);
+        changeCss('.app__body .emoji-picker .nav-tabs > li.active > a', 'border-bottom-color:' + theme.buttonBg + '!important;');
     }
 
     if (theme.buttonColor) {
@@ -857,11 +967,12 @@ export function changeCss(className, classValue) {
     const styleSheet = styleEl.sheet;
     const rules = styleSheet.cssRules || styleSheet.rules;
     const style = classValue.substr(0, classValue.indexOf(':'));
-    const value = classValue.substr(classValue.indexOf(':') + 1);
+    const value = classValue.substr(classValue.indexOf(':') + 1).replace(/!important[;]/g, '');
+    const priority = (classValue.match(/!important/) ? 'important' : null);
 
     for (let i = 0; i < rules.length; i++) {
         if (rules[i].selectorText === className) {
-            rules[i].style[style] = value;
+            rules[i].style.setProperty(style, value, priority);
             return;
         }
     }
@@ -949,21 +1060,6 @@ export function setSelectionRange(input, selectionStart, selectionEnd) {
 
 export function setCaretPosition(input, pos) {
     setSelectionRange(input, pos, pos);
-}
-
-export function getSelectedText(input) {
-    var selectedText;
-    if (typeof document.selection !== 'undefined') {
-        input.focus();
-        var sel = document.selection.createRange();
-        selectedText = sel.text;
-    } else if (typeof input.selectionStart !== 'undefined') {
-        var startPos = input.selectionStart;
-        var endPos = input.selectionEnd;
-        selectedText = input.value.substring(startPos, endPos);
-    }
-
-    return selectedText;
 }
 
 export function isValidUsername(name) {
@@ -1062,28 +1158,6 @@ export function changeColor(colourIn, amt) {
     return rgb;
 }
 
-export function changeOpacity(oldColor, opacity) {
-    var color = oldColor;
-    if (color[0] === '#') {
-        color = color.slice(1);
-    }
-
-    if (color.length === 3) {
-        const tempColor = color;
-        color = '';
-
-        color += tempColor[0] + tempColor[0];
-        color += tempColor[1] + tempColor[1];
-        color += tempColor[2] + tempColor[2];
-    }
-
-    var r = parseInt(color.substring(0, 2), 16);
-    var g = parseInt(color.substring(2, 4), 16);
-    var b = parseInt(color.substring(4, 6), 16);
-
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + opacity + ')';
-}
-
 export function getFullName(user) {
     if (user.first_name && user.last_name) {
         return user.first_name + ' ' + user.last_name;
@@ -1112,18 +1186,18 @@ export function getDisplayName(user) {
 /**
  * Gets the display name of the user with the specified id, respecting the TeammateNameDisplay configuration setting
  */
-export function getDisplayNameByUserId(userId) {
-    return getDisplayNameByUser(UserStore.getProfile(userId));
+export function getDisplayNameByUserId(userId, usernameWithPrefix = false) {
+    return getDisplayNameByUser(UserStore.getProfile(userId), usernameWithPrefix);
 }
 
 /**
  * Gets the display name of the specified user, respecting the TeammateNameDisplay configuration setting
  */
-export function getDisplayNameByUser(user) {
+export function getDisplayNameByUser(user, usernameWithPrefix = false) {
     const state = store.getState();
     const teammateNameDisplay = getTeammateNameDisplaySetting(state);
     if (user) {
-        return displayUsername(user, teammateNameDisplay);
+        return displayUsername(user, teammateNameDisplay, usernameWithPrefix);
     }
 
     return '';
@@ -1296,11 +1370,6 @@ export function getUserIdFromChannelId(channelId) {
     return otherUserId;
 }
 
-// Returns true if the given channel is a direct channel between the current user and the given one
-export function isDirectChannelForUser(otherUserId, channel) {
-    return channel.type === Constants.DM_CHANNEL && getUserIdFromChannelName(channel) === otherUserId;
-}
-
 export function importSlack(file, success, error) {
     Client4.importTeam(TeamStore.getCurrent().id, file, 'slack').then(success).catch(error);
 }
@@ -1311,24 +1380,6 @@ export function windowWidth() {
 
 export function windowHeight() {
     return $(window).height();
-}
-
-export function getChannelTerm(channelType) {
-    let channelTerm = 'Channel';
-    if (channelType === Constants.PRIVATE_CHANNEL) {
-        channelTerm = 'Group';
-    }
-
-    return channelTerm;
-}
-
-export function getPostTerm(post) {
-    let postTerm = 'Post';
-    if (post.root_id) {
-        postTerm = 'Comment';
-    }
-
-    return postTerm;
 }
 
 export function isFeatureEnabled(feature) {
@@ -1398,39 +1449,8 @@ export function mod(a, b) {
 
 export const REACTION_PATTERN = /^(\+|-):([^:\s]+):\s*$/;
 
-export function canCreateCustomEmoji(user) {
-    const state = store.getState();
-    const license = getLicense(state);
-    const config = getConfig(state);
-
-    if (license.IsLicensed !== 'true') {
-        return true;
-    }
-
-    if (isSystemAdmin(user.roles)) {
-        return true;
-    }
-
-    // already checked for system admin for both these cases
-    if (config.RestrictCustomEmojiCreation === 'system_admin') {
-        return false;
-    } else if (config.RestrictCustomEmojiCreation === 'admin') {
-        // check whether the user is an admin on any of their teams
-        if (TeamStore.isTeamAdminForAnyTeam()) {
-            return true;
-        }
-
-        return false;
-    }
-
-    return true;
-}
-
-export function getPasswordConfig(license, config) {
+export function getPasswordConfig(config) {
     return {
-        isEnterprise: config.BuildEnterpriseReady === 'true',
-        isLicensed: license.IsLicensed === 'true',
-        isPasswordRequirements: license.PasswordRequirements === 'true',
         minimumLength: parseInt(config.PasswordMinimumLength, 10),
         requireLowercase: config.PasswordRequireLowercase === 'true',
         requireUppercase: config.PasswordRequireUppercase === 'true',
@@ -1440,55 +1460,49 @@ export function getPasswordConfig(license, config) {
 }
 
 export function isValidPassword(password, passwordConfig) {
-    let errorMsg = '';
     let errorId = 'user.settings.security.passwordError';
-    let error = false;
-    let minimumLength = Constants.MIN_PASSWORD_LENGTH;
+    let valid = true;
+    const minimumLength = passwordConfig.minimumLength || Constants.MIN_PASSWORD_LENGTH;
 
-    if (passwordConfig.isEnterprise && passwordConfig.isLicensed && passwordConfig.isPasswordRequirements) {
-        if (password.length < passwordConfig.minimumLength || password.length > Constants.MAX_PASSWORD_LENGTH) {
-            error = true;
-        }
-
-        if (passwordConfig.requireLowercase) {
-            if (!password.match(/[a-z]/)) {
-                error = true;
-            }
-
-            errorId += 'Lowercase';
-        }
-
-        if (passwordConfig.requireUppercase) {
-            if (!password.match(/[A-Z]/)) {
-                error = true;
-            }
-
-            errorId += 'Uppercase';
-        }
-
-        if (passwordConfig.requireNumber) {
-            if (!password.match(/[0-9]/)) {
-                error = true;
-            }
-
-            errorId += 'Number';
-        }
-
-        if (passwordConfig.requireSymbol) {
-            if (!password.match(/[ !"\\#$%&'()*+,-./:;<=>?@[\]^_`|~]/)) {
-                error = true;
-            }
-
-            errorId += 'Symbol';
-        }
-
-        minimumLength = passwordConfig.minimumLength;
-    } else if (password.length < Constants.MIN_PASSWORD_LENGTH || password.length > Constants.MAX_PASSWORD_LENGTH) {
-        error = true;
+    if (password.length < minimumLength || password.length > Constants.MAX_PASSWORD_LENGTH) {
+        valid = false;
     }
 
-    if (error) {
-        errorMsg = (
+    if (passwordConfig.requireLowercase) {
+        if (!password.match(/[a-z]/)) {
+            valid = false;
+        }
+
+        errorId += 'Lowercase';
+    }
+
+    if (passwordConfig.requireUppercase) {
+        if (!password.match(/[A-Z]/)) {
+            valid = false;
+        }
+
+        errorId += 'Uppercase';
+    }
+
+    if (passwordConfig.requireNumber) {
+        if (!password.match(/[0-9]/)) {
+            valid = false;
+        }
+
+        errorId += 'Number';
+    }
+
+    if (passwordConfig.requireSymbol) {
+        if (!password.match(/[ !"\\#$%&'()*+,-./:;<=>?@[\]^_`|~]/)) {
+            valid = false;
+        }
+
+        errorId += 'Symbol';
+    }
+
+    let error;
+    if (!valid) {
+        error = (
             <FormattedMessage
                 id={errorId}
                 default='Your password must contain between {min} and {max} characters.'
@@ -1500,7 +1514,7 @@ export function isValidPassword(password, passwordConfig) {
         );
     }
 
-    return errorMsg;
+    return {valid, error};
 }
 
 export function handleFormattedTextClick(e) {

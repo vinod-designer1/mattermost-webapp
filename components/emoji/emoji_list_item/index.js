@@ -4,7 +4,8 @@
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 
-import {getUser, getCurrentUserId, isCurrentUserSystemAdmin} from 'mattermost-redux/selectors/entities/users';
+import {getUser, getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentTeam} from 'mattermost-redux/selectors/entities/teams';
 
 import {deleteCustomEmoji} from 'mattermost-redux/actions/emojis';
 
@@ -14,14 +15,14 @@ import EmojiListItem from './emoji_list_item.jsx';
 
 function mapStateToProps(state, ownProps) {
     const emoji = state.entities.emojis.customEmoji[ownProps.emojiId];
-    const creator = getUser(state, emoji.creator_id) || {};
+    const creator = getUser(state, emoji.creator_id);
 
     return {
         emoji,
         creatorDisplayName: getDisplayNameByUser(creator),
-        creatorUsername: creator.username,
+        creatorUsername: creator ? creator.username : '',
         currentUserId: getCurrentUserId(state),
-        isSystemAdmin: isCurrentUserSystemAdmin(state),
+        currentTeam: getCurrentTeam(state),
     };
 }
 

@@ -8,12 +8,12 @@ import exif2css from 'exif2css';
 import {OverlayTrigger, Tooltip} from 'react-bootstrap';
 
 import {Constants} from 'utils/constants.jsx';
+import {localizeMessage} from 'utils/utils.jsx';
 
 import loadingGif from 'images/load.gif';
 import FormError from 'components/form_error.jsx';
 
 export default class SettingPicture extends Component {
-
     static defaultProps = {
         imageContext: 'profile',
     };
@@ -38,10 +38,11 @@ export default class SettingPicture extends Component {
 
         this.state = {
             image: null,
+            removeSrc: false,
         };
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (nextProps.file !== this.props.file) {
             this.setState({image: null});
 
@@ -53,6 +54,29 @@ export default class SettingPicture extends Component {
         if (this.previewBlob) {
             URL.revokeObjectURL(this.previewBlob);
         }
+    }
+
+    handleCancel = (e) => {
+        this.setState({removeSrc: false});
+        this.props.updateSection(e);
+    }
+
+    handleSave = (e) => {
+        if (this.state.removeSrc) {
+            this.props.onRemove(e);
+        } else {
+            this.props.onSubmit(e);
+        }
+    }
+
+    handleRemoveSrc = (e) => {
+        e.preventDefault();
+        this.setState({removeSrc: true});
+    }
+
+    handleFileChange = (e) => {
+        this.setState({removeSrc: false});
+        this.props.onFileChange(e);
     }
 
     setPicture = (file) => {
@@ -137,11 +161,12 @@ export default class SettingPicture extends Component {
                         <div
                             alt={`${imageContext} image preview`}
                             style={imageStyles}
+                            className={`${imageContext}-img-preview`}
                         />
                     </div>
                 </div>
             );
-        } else if (this.props.src) {
+        } else if (this.props.src && !this.state.removeSrc) {
             img = (
                 <img
                     className={`${imageContext}-img`}
@@ -175,7 +200,7 @@ export default class SettingPicture extends Component {
                         >
                             <a
                                 className={`${imageContext}-img__remove`}
-                                onClick={this.props.onRemove}
+                                onClick={this.handleRemoveSrc}
                             >
                                 <span>{'×'}</span>
                             </a>
@@ -196,12 +221,15 @@ export default class SettingPicture extends Component {
                 />
             );
             selectButtonSpinner = (
-                <span className='icon fa fa-refresh icon--rotate'/>
+                <span
+                    className='icon fa fa-refresh icon--rotate'
+                    title={localizeMessage('generic_icons.loading', 'Loading Icon')}
+                />
             );
             fileInputDisabled = true;
         } else {
             let confirmButtonClass = 'btn btn-sm';
-            if (this.props.submitActive) {
+            if (this.props.submitActive || this.state.removeSrc) {
                 confirmButtonClass += ' btn-primary';
             } else {
                 confirmButtonClass += ' btn-inactive disabled';
@@ -210,7 +238,7 @@ export default class SettingPicture extends Component {
             confirmButton = (
                 <a
                     className={confirmButtonClass}
-                    onClick={this.props.onSubmit}
+                    onClick={this.handleSave}
                 >
                     <FormattedMessage
                         id='setting_picture.save'
@@ -265,7 +293,7 @@ export default class SettingPicture extends Component {
                                     ref='input'
                                     accept='.jpg,.png,.bmp'
                                     type='file'
-                                    onChange={this.props.onFileChange}
+                                    onChange={this.handleFileChange}
                                     disabled={fileInputDisabled}
                                 />
                             </div>
@@ -273,7 +301,7 @@ export default class SettingPicture extends Component {
                             <a
                                 className='btn btn-sm theme'
                                 href='#'
-                                onClick={this.props.updateSection}
+                                onClick={this.handleCancel}
                             >
                                 <FormattedMessage
                                     id='setting_picture.cancel'

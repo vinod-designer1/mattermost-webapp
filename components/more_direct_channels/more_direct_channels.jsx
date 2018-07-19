@@ -48,6 +48,7 @@ export default class MoreDirectChannels extends React.Component {
         actions: PropTypes.shape({
             getProfiles: PropTypes.func.isRequired,
             getProfilesInTeam: PropTypes.func.isRequired,
+            getStatusesByIds: PropTypes.func.isRequired,
             searchProfiles: PropTypes.func.isRequired,
             setModalSearchTerm: PropTypes.func.isRequired,
         }).isRequired,
@@ -83,9 +84,10 @@ export default class MoreDirectChannels extends React.Component {
 
     componentDidMount() {
         this.getUserProfiles();
+        this.loadProfilesMissingStatus(this.props.users, this.props.statuses);
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (this.props.searchTerm !== nextProps.searchTerm) {
             clearTimeout(this.searchTimeoutId);
 
@@ -108,6 +110,23 @@ export default class MoreDirectChannels extends React.Component {
                     Constants.SEARCH_TIMEOUT_MILLISECONDS
                 );
             }
+        }
+
+        if (
+            this.props.users.length !== nextProps.users.length ||
+            Object.keys(this.props.statuses).length !== Object.keys(nextProps.statuses).length
+        ) {
+            this.loadProfilesMissingStatus(nextProps.users, nextProps.statuses);
+        }
+    }
+
+    loadProfilesMissingStatus = (users = [], statuses = {}) => {
+        const missingStatusByIds = users.
+            filter((user) => !statuses[user.id]).
+            map((user) => user.id);
+
+        if (missingStatusByIds.length > 0) {
+            this.props.actions.getStatusesByIds(missingStatusByIds);
         }
     }
 
@@ -270,7 +289,10 @@ export default class MoreDirectChannels extends React.Component {
                 </div>
                 <div className='more-modal__actions'>
                     <div className='more-modal__actions--round'>
-                        <i className='fa fa-plus'/>
+                        <i
+                            className='fa fa-plus'
+                            title={localizeMessage('generic_icons.add', 'Add Icon')}
+                        />
                     </div>
                 </div>
             </div>
@@ -282,7 +304,7 @@ export default class MoreDirectChannels extends React.Component {
     }
 
     handleSubmitImmediatelyOn = (value) => {
-        return value.id === this.props.currentUserId || value.delete_at;
+        return value.id === this.props.currentUserId || Boolean(value.delete_at);
     }
 
     render() {
@@ -306,6 +328,7 @@ export default class MoreDirectChannels extends React.Component {
         }
 
         const buttonSubmitText = localizeMessage('multiselect.go', 'Go');
+        const buttonSubmitLoadingText = localizeMessage('multiselect.loading', 'Loading..');
 
         const numRemainingText = (
             <FormattedMessage
@@ -364,6 +387,7 @@ export default class MoreDirectChannels extends React.Component {
                         maxValues={MAX_SELECTABLE_VALUES}
                         numRemainingText={numRemainingText}
                         buttonSubmitText={buttonSubmitText}
+                        buttonSubmitLoadingText={buttonSubmitLoadingText}
                         submitImmediatelyOn={this.handleSubmitImmediatelyOn}
                         saving={this.state.saving}
                         loading={this.state.loadingUsers}

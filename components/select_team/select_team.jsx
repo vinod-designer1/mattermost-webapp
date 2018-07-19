@@ -29,7 +29,6 @@ const TEAMS_PER_PAGE = 200;
 
 export default class SelectTeam extends React.Component {
     static propTypes = {
-        isLicensed: PropTypes.bool.isRequired,
         currentUserRoles: PropTypes.string,
         customDescriptionText: PropTypes.string,
         isMemberOfTeam: PropTypes.bool.isRequired,
@@ -55,7 +54,7 @@ export default class SelectTeam extends React.Component {
         this.props.actions.getTeams(0, TEAMS_PER_PAGE);
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         const {
             actions,
             roles,
@@ -71,7 +70,7 @@ export default class SelectTeam extends React.Component {
         }
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (
             !this.state.loaded &&
             nextProps.roles.system_admin &&
@@ -122,7 +121,6 @@ export default class SelectTeam extends React.Component {
         const {
             currentUserRoles,
             customDescriptionText,
-            isLicensed,
             isMemberOfTeam,
             joinableTeams,
             siteName,
@@ -265,7 +263,10 @@ export default class SelectTeam extends React.Component {
                         href='#'
                         onClick={this.handleLogoutClick}
                     >
-                        <span className='fa fa-chevron-left'/>
+                        <span
+                            className='fa fa-chevron-left'
+                            title={Utils.localizeMessage('generic_icons.logout', 'Logout Icon')}
+                        />
                         <FormattedMessage id='web.header.logout'/>
                     </a>
                 </div>
@@ -283,7 +284,6 @@ export default class SelectTeam extends React.Component {
                         />
                         <SiteNameAndDescription
                             customDescriptionText={customDescriptionText}
-                            isLicensed={isLicensed}
                             siteName={siteName}
                         />
                         {openContent}

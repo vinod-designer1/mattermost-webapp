@@ -6,6 +6,7 @@ import PropTypes from 'prop-types';
 import {FormattedMessage} from 'react-intl';
 
 import {Preferences} from 'utils/constants.jsx';
+import {localizeMessage} from 'utils/utils.jsx';
 import MattermostLogo from 'components/svg/mattermost_logo';
 
 export default class SystemNotice extends React.PureComponent {
@@ -33,7 +34,7 @@ export default class SystemNotice extends React.PureComponent {
         this.setCurrentNotice();
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         this.setCurrentNotice(nextProps);
     }
 
@@ -93,6 +94,22 @@ export default class SystemNotice extends React.PureComponent {
             return null;
         }
 
+        let visibleMessage;
+        if (notice.adminOnly) {
+            visibleMessage = (
+                <div className='system-notice__info'>
+                    <i
+                        className='fa fa-eye'
+                        title={localizeMessage('system_notice.adminVisible.icon', 'Only visible to System Admins Icon')}
+                    />
+                    <FormattedMessage
+                        id='system_notice.adminVisible'
+                        defaultMessage='Only visible to System Admins'
+                    />
+                </div>
+            );
+        }
+
         return (
             <div
                 className='system-notice bg--white shadow--2'
@@ -108,6 +125,7 @@ export default class SystemNotice extends React.PureComponent {
                 <div className='system-notice__body'>
                     {notice.body}
                 </div>
+                {visibleMessage}
                 <div className='system-notice__footer'>
                     <button
                         id='systemnotice_remindme'
@@ -115,7 +133,7 @@ export default class SystemNotice extends React.PureComponent {
                         onClick={this.hideAndRemind}
                     >
                         <FormattedMessage
-                            id='system_notice_remind_me'
+                            id='system_notice.remind_me'
                             defaultMessage='Remind me later'
                         />
                     </button>
@@ -125,7 +143,7 @@ export default class SystemNotice extends React.PureComponent {
                         onClick={this.hideAndForget}
                     >
                         <FormattedMessage
-                            id='system_notice_dont_show'
+                            id='system_notice.dont_show'
                             defaultMessage="Don't show again"
                         />
                     </button>

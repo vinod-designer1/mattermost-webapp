@@ -34,6 +34,8 @@ export default class FileAttachmentList extends React.Component {
          */
         compactDisplay: PropTypes.bool,
 
+        isEmbedVisible: PropTypes.bool,
+
         actions: PropTypes.shape({
 
             /*
@@ -76,10 +78,12 @@ export default class FileAttachmentList extends React.Component {
                     return (
                         <SingleImageView
                             fileInfo={fileInfos[0]}
+                            isEmbedVisible={this.props.isEmbedVisible}
+                            post={this.props.post}
                         />
                     );
                 }
-            } else if (fileCount === 1) {
+            } else if (fileCount === 1 && this.props.isEmbedVisible) {
                 return (
                     <div style={style.minHeightPlaceholder}/>
                 );
@@ -117,7 +121,7 @@ export default class FileAttachmentList extends React.Component {
         }
 
         return (
-            <div>
+            <React.Fragment>
                 <div className='post-image__columns clearfix'>
                     {postFiles}
                 </div>
@@ -127,7 +131,7 @@ export default class FileAttachmentList extends React.Component {
                     startIndex={this.state.startImgIndex}
                     fileInfos={sortedFileInfos}
                 />
-            </div>
+            </React.Fragment>
         );
     }
 }

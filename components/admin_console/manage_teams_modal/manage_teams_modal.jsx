@@ -21,6 +21,7 @@ export default class ManageTeamsModal extends React.Component {
         onModalDismissed: PropTypes.func.isRequired,
         show: PropTypes.bool.isRequired,
         user: PropTypes.object,
+        updateTeamMemberSchemeRoles: PropTypes.func.isRequired,
     };
 
     constructor(props) {
@@ -39,7 +40,7 @@ export default class ManageTeamsModal extends React.Component {
         }
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         const userId = this.props.user ? this.props.user.id : '';
         const nextUserId = nextProps.user ? nextProps.user.id : '';
 
@@ -134,6 +135,7 @@ export default class ManageTeamsModal extends React.Component {
                             onError={this.handleError}
                             onMemberChange={this.handleMemberChange}
                             onMemberRemove={this.handleMemberRemove}
+                            updateTeamMemberSchemeRoles={this.props.updateTeamMemberSchemeRoles}
                         />
                     );
                 }

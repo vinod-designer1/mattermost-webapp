@@ -117,6 +117,10 @@ exports[`components/MessageExportSettings should match snapshot, disabled, actia
         values={
           Array [
             Object {
+              "text": "CSV",
+              "value": "csv",
+            },
+            Object {
               "text": "Actiance XML",
               "value": "actiance",
             },
@@ -143,33 +147,45 @@ exports[`components/MessageExportSettings should match snapshot, disabled, actia
           />
         }
         disabled={true}
+        getExtraInfoText={[Function]}
         jobType="message_export"
       />
     </SettingsGroup>
     <div
-      className="form-group"
+      className="admin-console-save"
     >
-      <FormError
-        error={null}
-        errors={Array []}
+      <SaveButton
+        btnClass="btn-primary"
+        defaultMessage="Save"
+        disabled={true}
+        extraClasses=""
+        onClick={[Function]}
+        saving={false}
+        savingMessage="Saving Config..."
       />
-    </div>
-    <div
-      className="form-group"
-    >
       <div
-        className="col-sm-12"
+        className="error-message"
+        onMouseOut={[Function]}
+        onMouseOver={[Function]}
       >
-        <SaveButton
-          btnClass="btn-primary"
-          defaultMessage="Save"
-          disabled={true}
-          extraClasses=""
-          onClick={[Function]}
-          saving={false}
-          savingMessage="Saving Config..."
+        <FormError
+          error={null}
+          errors={Array []}
         />
       </div>
+      <Overlay
+        animation={[Function]}
+        delayShow={400}
+        placement="top"
+        rootClose={false}
+        show={false}
+      >
+        <Tooltip
+          bsClass="tooltip"
+          id="error-tooltip"
+          placement="right"
+        />
+      </Overlay>
     </div>
   </form>
 </div>
@@ -292,6 +308,10 @@ exports[`components/MessageExportSettings should match snapshot, disabled, globa
         values={
           Array [
             Object {
+              "text": "CSV",
+              "value": "csv",
+            },
+            Object {
               "text": "Actiance XML",
               "value": "actiance",
             },
@@ -428,33 +448,45 @@ exports[`components/MessageExportSettings should match snapshot, disabled, globa
           />
         }
         disabled={true}
+        getExtraInfoText={[Function]}
         jobType="message_export"
       />
     </SettingsGroup>
     <div
-      className="form-group"
+      className="admin-console-save"
     >
-      <FormError
-        error={null}
-        errors={Array []}
+      <SaveButton
+        btnClass="btn-primary"
+        defaultMessage="Save"
+        disabled={true}
+        extraClasses=""
+        onClick={[Function]}
+        saving={false}
+        savingMessage="Saving Config..."
       />
-    </div>
-    <div
-      className="form-group"
-    >
       <div
-        className="col-sm-12"
+        className="error-message"
+        onMouseOut={[Function]}
+        onMouseOver={[Function]}
       >
-        <SaveButton
-          btnClass="btn-primary"
-          defaultMessage="Save"
-          disabled={true}
-          extraClasses=""
-          onClick={[Function]}
-          saving={false}
-          savingMessage="Saving Config..."
+        <FormError
+          error={null}
+          errors={Array []}
         />
       </div>
+      <Overlay
+        animation={[Function]}
+        delayShow={400}
+        placement="top"
+        rootClose={false}
+        show={false}
+      >
+        <Tooltip
+          bsClass="tooltip"
+          id="error-tooltip"
+          placement="right"
+        />
+      </Overlay>
     </div>
   </form>
 </div>
@@ -577,6 +609,10 @@ exports[`components/MessageExportSettings should match snapshot, enabled, actian
         values={
           Array [
             Object {
+              "text": "CSV",
+              "value": "csv",
+            },
+            Object {
               "text": "Actiance XML",
               "value": "actiance",
             },
@@ -603,33 +639,45 @@ exports[`components/MessageExportSettings should match snapshot, enabled, actian
           />
         }
         disabled={false}
+        getExtraInfoText={[Function]}
         jobType="message_export"
       />
     </SettingsGroup>
     <div
-      className="form-group"
+      className="admin-console-save"
     >
-      <FormError
-        error={null}
-        errors={Array []}
+      <SaveButton
+        btnClass="btn-primary"
+        defaultMessage="Save"
+        disabled={true}
+        extraClasses=""
+        onClick={[Function]}
+        saving={false}
+        savingMessage="Saving Config..."
       />
-    </div>
-    <div
-      className="form-group"
-    >
       <div
-        className="col-sm-12"
+        className="error-message"
+        onMouseOut={[Function]}
+        onMouseOver={[Function]}
       >
-        <SaveButton
-          btnClass="btn-primary"
-          defaultMessage="Save"
-          disabled={true}
-          extraClasses=""
-          onClick={[Function]}
-          saving={false}
-          savingMessage="Saving Config..."
+        <FormError
+          error={null}
+          errors={Array []}
         />
       </div>
+      <Overlay
+        animation={[Function]}
+        delayShow={400}
+        placement="top"
+        rootClose={false}
+        show={false}
+      >
+        <Tooltip
+          bsClass="tooltip"
+          id="error-tooltip"
+          placement="right"
+        />
+      </Overlay>
     </div>
   </form>
 </div>
@@ -751,6 +799,10 @@ exports[`components/MessageExportSettings should match snapshot, enabled, global
         value="globalrelay"
         values={
           Array [
+            Object {
+              "text": "CSV",
+              "value": "csv",
+            },
             Object {
               "text": "Actiance XML",
               "value": "actiance",
@@ -888,33 +940,45 @@ exports[`components/MessageExportSettings should match snapshot, enabled, global
           />
         }
         disabled={false}
+        getExtraInfoText={[Function]}
         jobType="message_export"
       />
     </SettingsGroup>
     <div
-      className="form-group"
+      className="admin-console-save"
     >
-      <FormError
-        error={null}
-        errors={Array []}
+      <SaveButton
+        btnClass="btn-primary"
+        defaultMessage="Save"
+        disabled={true}
+        extraClasses=""
+        onClick={[Function]}
+        saving={false}
+        savingMessage="Saving Config..."
       />
-    </div>
-    <div
-      className="form-group"
-    >
       <div
-        className="col-sm-12"
+        className="error-message"
+        onMouseOut={[Function]}
+        onMouseOver={[Function]}
       >
-        <SaveButton
-          btnClass="btn-primary"
-          defaultMessage="Save"
-          disabled={true}
-          extraClasses=""
-          onClick={[Function]}
-          saving={false}
-          savingMessage="Saving Config..."
+        <FormError
+          error={null}
+          errors={Array []}
         />
       </div>
+      <Overlay
+        animation={[Function]}
+        delayShow={400}
+        placement="top"
+        rootClose={false}
+        show={false}
+      >
+        <Tooltip
+          bsClass="tooltip"
+          id="error-tooltip"
+          placement="right"
+        />
+      </Overlay>
     </div>
   </form>
 </div>

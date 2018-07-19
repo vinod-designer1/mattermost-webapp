@@ -104,6 +104,19 @@ describe('components/admin_console/SchemaAdminSettings', () => {
                     placeholder_default: 'e.g. some setting',
                 },
                 {
+                    key: 'SecondSettings.settingh',
+                    label: 'label-h',
+                    label_default: 'Setting Eight',
+                    type: 'number',
+                    default: 'setting_default',
+                    help_text: 'help-text-h',
+                    help_text_default: 'This is some help text for the number field.',
+                    placeholder: 'placeholder-h',
+                    placeholder_default: 'e.g. some setting',
+                    onConfigLoad: (configVal) => configVal / 10,
+                    onConfigSave: (displayVal) => displayVal * 10,
+                },
+                {
                     label: 'label-h',
                     label_default: 'Setting Eight',
                     type: 'banner',
@@ -155,6 +168,14 @@ describe('components/admin_console/SchemaAdminSettings', () => {
                     help_text_default: 'This is some help text for the second bool field.',
                 },
                 {
+                    key: 'FirstSettings.settingm',
+                    label: 'label-m',
+                    label_default: 'Setting Thirteen',
+                    type: 'color',
+                    help_text: 'help-text-m',
+                    help_text_default: 'This is some help text for the color field.',
+                },
+                {
                     type: 'custom',
                     key: 'custom',
                     component: () => <p>{'Test'}</p>,
@@ -183,6 +204,7 @@ describe('components/admin_console/SchemaAdminSettings', () => {
                 settinge: 'Q6DHXrFLOIS5sOI5JNF4PyDLqWm7vh23',
                 settingf: '3xz3r6n7dtbbmgref3yw4zg7sr',
                 settingg: 7,
+                settingh: 100,
             },
         };
 

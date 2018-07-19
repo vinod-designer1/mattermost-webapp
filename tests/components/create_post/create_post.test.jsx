@@ -5,10 +5,12 @@ import React from 'react';
 import {shallow} from 'enzyme';
 import {Posts} from 'mattermost-redux/constants';
 
-import Constants, {StoragePrefixes} from 'utils/constants.jsx';
-import CreatePost from 'components/create_post/create_post.jsx';
-import * as Utils from 'utils/utils.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
+
+import Constants, {StoragePrefixes} from 'utils/constants.jsx';
+import * as Utils from 'utils/utils.jsx';
+
+import CreatePost from 'components/create_post/create_post.jsx';
 
 jest.mock('actions/global_actions.jsx', () => ({
     emitLocalUserTypingEvent: jest.fn(),
@@ -76,7 +78,6 @@ const actionsProp = {
 };
 
 function createPost({
-    isRhsOpen = false,
     currentChannel = currentChannelProp,
     currentTeamId = currentTeamIdProp,
     currentUserId = currentUserIdProp,
@@ -95,7 +96,6 @@ function createPost({
 } = {}) {
     return (
         <CreatePost
-            isRhsOpen={isRhsOpen}
             currentChannel={currentChannel}
             currentTeamId={currentTeamId}
             currentUserId={currentUserId}
@@ -114,6 +114,7 @@ function createPost({
             enableTutorial={true}
             enableConfirmNotificationsToChannel={true}
             enableEmojiPicker={true}
+            enableGifPicker={true}
             maxPostSize={Constants.DEFAULT_CHARACTER_LIMIT}
             userIsOutOfOffice={false}
         />
@@ -380,8 +381,7 @@ describe('components/create_post', () => {
         instance.focusTextbox = jest.fn();
 
         instance.handleFileUploadChange();
-        expect(instance.focusTextbox).toBeCalled();
-        expect(instance.focusTextbox).toBeCalledWith(true);
+        expect(instance.focusTextbox).toHaveBeenCalledTimes(1);
     });
 
     it('check for handleFileUploadStart callback', () => {
@@ -530,8 +530,10 @@ describe('components/create_post', () => {
             ctrlSend: true,
         }));
         const instance = wrapper.instance();
-        instance.handleKeyDown({ctrlKey: true, key: Constants.KeyCodes.ENTER[0], keyCode: Constants.KeyCodes.ENTER[1], preventDefault: jest.fn});
-        expect(GlobalActions.emitLocalUserTypingEvent).toHaveBeenCalledWith(currentChannelProp.id, '');
+        instance.handleKeyDown({ctrlKey: true, key: Constants.KeyCodes.ENTER[0], keyCode: Constants.KeyCodes.ENTER[1], preventDefault: jest.fn, persist: jest.fn});
+        setTimeout(() => {
+            expect(GlobalActions.emitLocalUserTypingEvent).toHaveBeenCalledWith(currentChannelProp.id, '');
+        }, 0);
     });
 
     it('Should call edit action as comment for arrow up', () => {

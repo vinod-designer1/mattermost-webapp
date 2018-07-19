@@ -140,6 +140,11 @@ export default class CreateComment extends React.PureComponent {
         enableEmojiPicker: PropTypes.bool.isRequired,
 
         /**
+         * Set if the gif picker is enabled.
+         */
+        enableGifPicker: PropTypes.bool.isRequired,
+
+        /**
          * The maximum length of a post
          */
         maxPostSize: PropTypes.number.isRequired,
@@ -162,7 +167,7 @@ export default class CreateComment extends React.PureComponent {
         this.lastBlurAt = 0;
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         this.props.clearCommentDraftUploads();
         this.props.onResetHistoryIndex();
         this.setState({draft: {...this.props.draft, uploadsInProgress: []}});
@@ -176,7 +181,7 @@ export default class CreateComment extends React.PureComponent {
         this.props.resetCreatePostRequest();
     }
 
-    componentWillReceiveProps(newProps) {
+    UNSAFE_componentWillReceiveProps(newProps) { // eslint-disable-line camelcase
         if (newProps.createPostErrorId === 'api.post.create_post.root_id.app_error' && newProps.createPostErrorId !== this.props.createPostErrorId) {
             this.showPostDeletedModal();
         }
@@ -238,6 +243,29 @@ export default class CreateComment extends React.PureComponent {
             newMessage = `${draft.message}:${emojiAlias}: `;
         } else {
             newMessage = `${draft.message} :${emojiAlias}: `;
+        }
+
+        this.props.onUpdateCommentDraft({...draft, message: newMessage});
+
+        this.setState({
+            showEmojiPicker: false,
+            draft: {...draft, message: newMessage},
+        });
+
+        this.focusTextbox();
+    }
+
+    handleGifClick = (gif) => {
+        const {draft} = this.state;
+
+        let newMessage = '';
+        if (draft.message === '') {
+            newMessage = gif;
+        } else if (/\s+$/.test(draft.message)) {
+            // Check whether there is already a blank at the end of the current message
+            newMessage = `${draft.message}${gif} `;
+        } else {
+            newMessage = `${draft.message} ${gif} `;
         }
 
         this.props.onUpdateCommentDraft({...draft, message: newMessage});
@@ -374,7 +402,7 @@ export default class CreateComment extends React.PureComponent {
     }
 
     handleFileUploadChange = () => {
-        this.focusTextbox(true);
+        this.focusTextbox();
     }
 
     handleUploadStart = (clientIds) => {
@@ -607,6 +635,8 @@ export default class CreateComment extends React.PureComponent {
                         target={this.getCreateCommentControls}
                         onHide={this.hideEmojiPicker}
                         onEmojiClick={this.handleEmojiClick}
+                        onGifClick={this.handleGifClick}
+                        enableGifPicker={this.props.enableGifPicker}
                         rightOffset={15}
                         topOffset={55}
                     />

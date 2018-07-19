@@ -37,37 +37,6 @@ exports[`plugins/MainMenuActions should match snapshot and click plugin item for
     <Connect(TeamPermissionGate)
       permissions={
         Array [
-          "invite_user",
-        ]
-      }
-      teamId="someteamid"
-    >
-      <Connect(TeamPermissionGate)
-        permissions={
-          Array [
-            "add_user_to_team",
-          ]
-        }
-        teamId="someteamid"
-      >
-        <li>
-          <button
-            className="style--none"
-            id="sendEmailInvite"
-            onClick={[Function]}
-          >
-            <FormattedMessage
-              defaultMessage="Send Email Invite"
-              id="navbar_dropdown.inviteMember"
-              values={Object {}}
-            />
-          </button>
-        </li>
-      </Connect(TeamPermissionGate)>
-    </Connect(TeamPermissionGate)>
-    <Connect(TeamPermissionGate)
-      permissions={
-        Array [
           "add_user_to_team",
         ]
       }
@@ -484,8 +453,8 @@ exports[`plugins/MainMenuActions should match snapshot and click plugin item for
           id="someplugin_pluginrightmenuitem"
           onClick={[MockFunction]}
         >
-          <i
-            className="icon fa fa-plus-square"
+          <span
+            className="icon"
           />
           some plugin text
         </a>

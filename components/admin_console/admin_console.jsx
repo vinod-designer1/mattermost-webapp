@@ -14,6 +14,7 @@ import ClientVersionsSettings from 'components/admin_console/client_versions_set
 import ClusterSettings from 'components/admin_console/cluster_settings.jsx';
 import CustomBrandSettings from 'components/admin_console/custom_brand_settings.jsx';
 import CustomEmojiSettings from 'components/admin_console/custom_emoji_settings.jsx';
+import CustomGifSettings from 'components/admin_console/custom_gif_settings.jsx';
 import DataRetentionSettings from 'components/admin_console/data_retention_settings.jsx';
 import DatabaseSettings from 'components/admin_console/database_settings.jsx';
 import ElasticsearchSettings from 'components/admin_console/elasticsearch_settings.jsx';
@@ -24,16 +25,13 @@ import OAuthSettings from 'components/admin_console/oauth_settings.jsx';
 import PasswordSettings from 'components/admin_console/password_settings.jsx';
 import PluginManagement from 'components/admin_console/plugin_management';
 import CustomPluginSettings from 'components/admin_console/custom_plugin_settings';
-import PolicySettings from 'components/admin_console/policy_settings';
 import CustomIntegrationSettings from 'components/admin_console/custom_integrations_settings';
 import UsersAndTeamsSettings from 'components/admin_console/users_and_teams_settings';
 
 import SchemaAdminSettings from 'components/admin_console/schema_admin_settings';
 import PushSettings from 'components/admin_console/push_settings.jsx';
-import RateSettings from 'components/admin_console/rate_settings.jsx';
 import SamlSettings from 'components/admin_console/saml_settings.jsx';
 import SessionSettings from 'components/admin_console/session_settings.jsx';
-import StorageSettings from 'components/admin_console/storage_settings.jsx';
 import DiscardChangesModal from 'components/discard_changes_modal.jsx';
 
 import AdminSidebar from './admin_sidebar';
@@ -113,7 +111,7 @@ export default class AdminConsole extends React.Component {
         }).isRequired,
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         this.props.actions.getConfig();
         this.props.actions.getEnvironmentConfig();
         reloadIfServerVersionChanged();
@@ -211,11 +209,6 @@ export default class AdminConsole extends React.Component {
                                         }}
                                     />
                                     <SCRoute
-                                        path={`${props.match.url}/policy`}
-                                        component={PolicySettings}
-                                        extraProps={extraProps}
-                                    />
-                                    <SCRoute
                                         path={`${props.match.url}/compliance`}
                                         component={SchemaAdminSettings}
                                         extraProps={{
@@ -232,6 +225,45 @@ export default class AdminConsole extends React.Component {
                                         }}
                                     />
                                     <Redirect to={`${props.match.url}/configuration`}/>
+                                </Switch>
+                            )}
+                        />
+                        <Route
+                            path={`${this.props.match.url}/permissions`}
+                            render={(props) => (
+                                <Switch>
+                                    <SCRoute
+                                        path={`${props.match.url}/schemes`}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.permissions.schemes.schema,
+                                        }}
+                                    />
+                                    <SCRoute
+                                        path={`${props.match.url}/system-scheme`}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.permissions.systemScheme.schema,
+                                        }}
+                                    />
+                                    <SCRoute
+                                        path={`${props.match.url}/team-override-scheme/:scheme_id`}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.permissions.teamScheme.schema,
+                                        }}
+                                    />
+                                    <SCRoute
+                                        path={`${props.match.url}/team-override-scheme`}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.permissions.teamScheme.schema,
+                                        }}
+                                    />
                                 </Switch>
                             )}
                         />
@@ -408,8 +440,11 @@ export default class AdminConsole extends React.Component {
                                 <Switch>
                                     <SCRoute
                                         path={`${props.match.url}/storage`}
-                                        component={StorageSettings}
-                                        extraProps={extraProps}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.files.storage.schema,
+                                        }}
                                     />
                                     <Redirect to={`${props.match.url}/storage`}/>
                                 </Switch>
@@ -425,16 +460,29 @@ export default class AdminConsole extends React.Component {
                                         extraProps={extraProps}
                                     />
                                     <SCRoute
+                                        path={`${props.match.url}/announcement`}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.customization.announcement.schema,
+                                        }}
+                                    />
+                                    <SCRoute
                                         path={`${props.match.url}/emoji`}
                                         component={CustomEmojiSettings}
                                         extraProps={extraProps}
                                     />
                                     <SCRoute
-                                        path={`${props.match.url}/link_previews`}
+                                        path={`${props.match.url}/gif`}
+                                        component={CustomGifSettings}
+                                        extraProps={extraProps}
+                                    />
+                                    <SCRoute
+                                        path={`${props.match.url}/posts`}
                                         component={SchemaAdminSettings}
                                         extraProps={{
                                             ...extraProps,
-                                            schema: AdminDefinition.settings.customization.link_previews.schema,
+                                            schema: AdminDefinition.settings.customization.posts.schema,
                                         }}
                                     />
                                     <SCRoute
@@ -481,8 +529,11 @@ export default class AdminConsole extends React.Component {
                                 <Switch>
                                     <SCRoute
                                         path={`${props.match.url}/rate`}
-                                        component={RateSettings}
-                                        extraProps={extraProps}
+                                        component={SchemaAdminSettings}
+                                        extraProps={{
+                                            ...extraProps,
+                                            schema: AdminDefinition.settings.advanced.rate.schema,
+                                        }}
                                     />
                                     <SCRoute
                                         path={`${props.match.url}/database`}

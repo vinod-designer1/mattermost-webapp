@@ -3,9 +3,13 @@
 
 import $ from 'jquery';
 import {batchActions} from 'redux-batched-actions';
-import {ChannelTypes, EmojiTypes, PostTypes, TeamTypes, UserTypes, RoleTypes, GeneralTypes} from 'mattermost-redux/action_types';
+import {ChannelTypes, EmojiTypes, PostTypes, TeamTypes, UserTypes, RoleTypes, GeneralTypes, AdminTypes} from 'mattermost-redux/action_types';
 import {WebsocketEvents, General} from 'mattermost-redux/constants';
-import {getChannelAndMyMember, getChannelStats, viewChannel} from 'mattermost-redux/actions/channels';
+import {
+    getChannelAndMyMember,
+    getChannelStats,
+    viewChannel,
+} from 'mattermost-redux/actions/channels';
 import {setServerVersion} from 'mattermost-redux/actions/general';
 import {getPosts, getProfilesAndStatusesForPosts, getCustomEmojiForReaction} from 'mattermost-redux/actions/posts';
 import * as TeamActions from 'mattermost-redux/actions/teams';
@@ -14,6 +18,7 @@ import {Client4} from 'mattermost-redux/client';
 import {getCurrentUser, getCurrentUserId, getStatusForUserId} from 'mattermost-redux/selectors/entities/users';
 import {getMyTeams} from 'mattermost-redux/selectors/entities/teams';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
+import {getChannel} from 'mattermost-redux/selectors/entities/channels';
 
 import {browserHistory} from 'utils/browser_history';
 import {loadChannelsForCurrentUser} from 'actions/channel_actions.jsx';
@@ -32,6 +37,7 @@ import UserStore from 'stores/user_store.jsx';
 import WebSocketClient from 'client/web_websocket_client.jsx';
 import {loadPlugin, loadPluginsIfNecessary, removePlugin} from 'plugins';
 import {ActionTypes, Constants, ErrorBarTypes, Preferences, SocketEvents, UserStatuses} from 'utils/constants.jsx';
+import {fromAutoResponder} from 'utils/post_utils';
 import {getSiteURL} from 'utils/url.jsx';
 
 import * as WebrtcActions from './webrtc_actions.jsx';
@@ -40,6 +46,8 @@ const dispatch = store.dispatch;
 const getState = store.getState;
 
 const MAX_WEBSOCKET_FAILS = 7;
+
+const pluginEventHandlers = {};
 
 export function initialize() {
     if (!window.WebSocket) {
@@ -52,23 +60,30 @@ export function initialize() {
     if (config.WebsocketURL) {
         connUrl = config.WebsocketURL;
     } else {
-        connUrl = getSiteURL();
+        connUrl = new URL(getSiteURL());
 
         // replace the protocol with a websocket one
-        if (connUrl.startsWith('https:')) {
-            connUrl = connUrl.replace(/^https:/, 'wss:');
+        if (connUrl.protocol === 'https:') {
+            connUrl.protocol = 'wss:';
         } else {
-            connUrl = connUrl.replace(/^http:/, 'ws:');
+            connUrl.protocol = 'ws:';
         }
 
         // append a port number if one isn't already specified
-        if (!(/:\d+$/).test(connUrl)) {
-            if (connUrl.startsWith('wss:')) {
-                connUrl += ':' + config.WebsocketSecurePort;
+        if (!(/:\d+$/).test(connUrl.host)) {
+            if (connUrl.protocol === 'wss:') {
+                connUrl.host += ':' + config.WebsocketSecurePort;
             } else {
-                connUrl += ':' + config.WebsocketPort;
+                connUrl.host += ':' + config.WebsocketPort;
             }
         }
+
+        connUrl = connUrl.toString();
+    }
+
+    // Strip any trailing slash before appending the pathname below.
+    if (connUrl.length > 0 && connUrl[connUrl.length - 1] === '/') {
+        connUrl = connUrl.substring(0, connUrl.length - 1);
     }
 
     connUrl += Client4.getUrlVersion() + '/websocket';
@@ -90,12 +105,28 @@ function reconnectWebSocket() {
     initialize();
 }
 
+const pluginReconnectHandlers = {};
+
+export function registerPluginReconnectHandler(pluginId, handler) {
+    pluginReconnectHandlers[pluginId] = handler;
+}
+
+export function unregisterPluginReconnectHandler(pluginId) {
+    Reflect.deleteProperty(pluginReconnectHandlers, pluginId);
+}
+
 export function reconnect(includeWebSocket = true) {
     if (includeWebSocket) {
         reconnectWebSocket();
     }
 
     loadPluginsIfNecessary();
+
+    Object.values(pluginReconnectHandlers).forEach((handler) => {
+        if (handler && typeof handler === 'function') {
+            handler();
+        }
+    });
 
     const currentTeamId = getState().entities.teams.currentTeamId;
     if (currentTeamId) {
@@ -128,6 +159,26 @@ export function startPeriodicSync() {
 
 export function stopPeriodicSync() {
     clearInterval(intervalId);
+}
+
+export function registerPluginWebSocketEvent(pluginId, event, action) {
+    if (!pluginEventHandlers[pluginId]) {
+        pluginEventHandlers[pluginId] = {};
+    }
+    pluginEventHandlers[pluginId][event] = action;
+}
+
+export function unregisterPluginWebSocketEvent(pluginId, event) {
+    const events = pluginEventHandlers[pluginId];
+    if (!events) {
+        return;
+    }
+
+    Reflect.deleteProperty(events, event);
+}
+
+export function unregisterAllPluginWebSocketEvents(pluginId) {
+    Reflect.deleteProperty(pluginEventHandlers, pluginId);
 }
 
 function handleFirstConnect() {
@@ -211,6 +262,10 @@ function handleEvent(msg) {
         handleChannelDeletedEvent(msg);
         break;
 
+    case SocketEvents.CHANNEL_CONVERTED:
+        handleChannelConvertedEvent(msg);
+        break;
+
     case SocketEvents.CHANNEL_UPDATED:
         handleChannelUpdatedEvent(msg);
         break;
@@ -267,12 +322,12 @@ function handleEvent(msg) {
         handleChannelViewedEvent(msg);
         break;
 
-    case SocketEvents.PLUGIN_ACTIVATED:
-        handlePluginActivated(msg);
+    case SocketEvents.PLUGIN_ENABLED:
+        handlePluginEnabled(msg);
         break;
 
-    case SocketEvents.PLUGIN_DEACTIVATED:
-        handlePluginDeactivated(msg);
+    case SocketEvents.PLUGIN_DISABLED:
+        handlePluginDisabled(msg);
         break;
 
     case SocketEvents.USER_ROLE_UPDATED:
@@ -287,7 +342,35 @@ function handleEvent(msg) {
         handleLicenseChanged(msg);
         break;
 
+    case SocketEvents.PLUGIN_STATUSES_CHANGED:
+        handlePluginStatusesChangedEvent(msg);
+        break;
+
     default:
+    }
+
+    Object.values(pluginEventHandlers).forEach((pluginEvents) => {
+        if (!pluginEvents) {
+            return;
+        }
+
+        if (pluginEvents.hasOwnProperty(msg.event) && typeof pluginEvents[msg.event] === 'function') {
+            pluginEvents[msg.event](msg);
+        }
+    });
+}
+
+// handleChannelConvertedEvent handles updating of channel which is converted from public to private
+function handleChannelConvertedEvent(msg) {
+    const channelId = msg.data.channel_id;
+    if (channelId) {
+        const channel = getChannel(getState(), channelId);
+        if (channel) {
+            dispatch({
+                type: ChannelTypes.RECEIVED_CHANNEL,
+                data: {...channel, type: General.PRIVATE_CHANNEL},
+            });
+        }
     }
 }
 
@@ -307,7 +390,7 @@ function handleNewPostEvent(msg) {
 
     getProfilesAndStatusesForPosts([post], dispatch, getState);
 
-    if (post.user_id !== UserStore.getCurrentId()) {
+    if (post.user_id !== UserStore.getCurrentId() && !fromAutoResponder(post)) {
         UserStore.setStatus(post.user_id, UserStatuses.ONLINE);
     }
 }
@@ -376,8 +459,7 @@ function handleLeaveTeamEvent(msg) {
         dispatch(batchActions([
             {
                 type: UserTypes.RECEIVED_PROFILE_NOT_IN_TEAM,
-                data: {user_id: msg.data.user_id},
-                id: msg.data.team_id,
+                data: {id: msg.data.team_id, user_id: msg.data.user_id},
             },
             {
                 type: TeamTypes.REMOVE_MEMBER_FROM_TEAM,
@@ -462,6 +544,10 @@ function handleDirectAddedEvent(msg) {
 function handleUserAddedEvent(msg) {
     if (ChannelStore.getCurrentId() === msg.broadcast.channel_id) {
         getChannelStats(ChannelStore.getCurrentId())(dispatch, getState);
+        dispatch({
+            type: UserTypes.RECEIVED_PROFILE_IN_CHANNEL,
+            data: {id: msg.broadcast.channel_id, user_id: msg.data.user_id},
+        });
     }
 
     if (TeamStore.getCurrentId() === msg.data.team_id && UserStore.getCurrentId() === msg.data.user_id) {
@@ -498,8 +584,7 @@ function handleUserRemovedEvent(msg) {
         getChannelStats(ChannelStore.getCurrentId())(dispatch, getState);
         dispatch({
             type: UserTypes.RECEIVED_PROFILE_NOT_IN_CHANNEL,
-            data: {user_id: msg.data.user_id},
-            id: msg.broadcast.channel_id,
+            data: {id: msg.broadcast.channel_id, user_id: msg.data.user_id},
         });
     }
 }
@@ -561,8 +646,6 @@ function handleChannelDeletedEvent(msg) {
         browserHistory.push(teamUrl + '/channels/' + Constants.DEFAULT_CHANNEL);
     }
     dispatch({type: ChannelTypes.RECEIVED_CHANNEL_DELETED, data: {id: msg.data.channel_id, team_id: msg.broadcast.team_id}}, getState);
-    loadChannelsForCurrentUser();
-    TeamActions.getMyTeamUnreads()(dispatch, getState);
 }
 
 function handlePreferenceChangedEvent(msg) {
@@ -666,13 +749,13 @@ function handleChannelViewedEvent(msg) {
     }
 }
 
-function handlePluginActivated(msg) {
+function handlePluginEnabled(msg) {
     const manifest = msg.data.manifest;
     store.dispatch({type: ActionTypes.RECEIVED_WEBAPP_PLUGIN, data: manifest});
     loadPlugin(manifest);
 }
 
-function handlePluginDeactivated(msg) {
+function handlePluginDisabled(msg) {
     const manifest = msg.data.manifest;
     store.dispatch({type: ActionTypes.REMOVED_WEBAPP_PLUGIN, data: manifest});
     removePlugin(manifest);
@@ -699,4 +782,8 @@ function handleConfigChanged(msg) {
 
 function handleLicenseChanged(msg) {
     store.dispatch({type: GeneralTypes.CLIENT_LICENSE_RECEIVED, data: msg.data.license});
+}
+
+function handlePluginStatusesChangedEvent(msg) {
+    store.dispatch({type: AdminTypes.RECEIVED_PLUGIN_STATUSES, data: msg.data.plugin_statuses});
 }

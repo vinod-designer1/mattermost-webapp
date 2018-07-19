@@ -15,6 +15,7 @@ exports[`components/admin_console/SchemaAdminSettings should match snapshot with
         "settinge": "Q6DHXrFLOIS5sOI5JNF4PyDLqWm7vh23",
         "settingf": "3xz3r6n7dtbbmgref3yw4zg7sr",
         "settingg": 7,
+        "settingh": 100,
       },
     }
   }
@@ -226,6 +227,25 @@ exports[`components/admin_console/SchemaAdminSettings should match snapshot with
         setByEnv={false}
         type="number"
         value={7}
+      />
+      <TextSetting
+        disabled={false}
+        helpText={
+          <FormattedMessage
+            defaultMessage="This is some help text for the number field."
+            id="help-text-h"
+            values={Object {}}
+          />
+        }
+        id="SecondSettings.settingh"
+        key="Config_text_SecondSettings.settingh"
+        label="Setting Eight"
+        maxLength={null}
+        onChange={[Function]}
+        placeholder="e.g. some setting"
+        setByEnv={false}
+        type="number"
+        value={10}
       />
       <div
         className="banner undefined"
@@ -500,8 +520,28 @@ exports[`components/admin_console/SchemaAdminSettings should match snapshot with
         }
         value={true}
       />
+      <ColorSetting
+        disabled={false}
+        helpText={
+          <FormattedMessage
+            defaultMessage="This is some help text for the color field."
+            id="help-text-m"
+            values={Object {}}
+          />
+        }
+        id="FirstSettings.settingm"
+        key="Config_text_FirstSettings.settingm"
+        label="Setting Thirteen"
+        onChange={[Function]}
+        value=""
+      />
       <component
+        disabled={false}
+        id="custom"
         key="Config_userautocomplete_custom"
+        onChange={[Function]}
+        setByEnv={false}
+        value=""
       />
       <Connect(InjectIntl(JobTable))
         createJobButtonText={
@@ -525,29 +565,40 @@ exports[`components/admin_console/SchemaAdminSettings should match snapshot with
       />
     </SettingsGroup>
     <div
-      className="form-group"
+      className="admin-console-save"
     >
-      <FormError
-        error={null}
-        errors={Array []}
+      <SaveButton
+        btnClass="btn-primary"
+        defaultMessage="Save"
+        disabled={true}
+        extraClasses=""
+        onClick={[Function]}
+        saving={false}
+        savingMessage="Saving Config..."
       />
-    </div>
-    <div
-      className="form-group"
-    >
       <div
-        className="col-sm-12"
+        className="error-message"
+        onMouseOut={[Function]}
+        onMouseOver={[Function]}
       >
-        <SaveButton
-          btnClass="btn-primary"
-          defaultMessage="Save"
-          disabled={true}
-          extraClasses=""
-          onClick={[Function]}
-          saving={false}
-          savingMessage="Saving Config..."
+        <FormError
+          error={null}
+          errors={Array []}
         />
       </div>
+      <Overlay
+        animation={[Function]}
+        delayShow={400}
+        placement="top"
+        rootClose={false}
+        show={false}
+      >
+        <Tooltip
+          bsClass="tooltip"
+          id="error-tooltip"
+          placement="right"
+        />
+      </Overlay>
     </div>
   </form>
 </div>

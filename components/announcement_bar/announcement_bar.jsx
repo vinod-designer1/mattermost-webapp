@@ -40,6 +40,7 @@ export default class AnnouncementBar extends React.PureComponent {
         bannerText: PropTypes.string,
         allowBannerDismissal: PropTypes.bool.isRequired,
         enableBanner: PropTypes.bool.isRequired,
+        enablePreviewMode: PropTypes.bool.isRequired,
         bannerColor: PropTypes.string,
         bannerTextColor: PropTypes.string,
         enableSignUpWithGitLab: PropTypes.bool.isRequired,
@@ -56,7 +57,17 @@ export default class AnnouncementBar extends React.PureComponent {
 
         this.setInitialError();
 
-        this.state = this.getState();
+        this.state = this.getState(props);
+    }
+
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
+        if (nextProps.enableBanner !== this.props.enableBanner ||
+                nextProps.bannerText !== this.props.bannerText ||
+                nextProps.bannerColor !== this.props.bannerColor ||
+                nextProps.bannerTextColor !== this.props.bannerTextColor ||
+                nextProps.allowBannerDismissal !== this.props.allowBannerDismissal) {
+            this.setState(this.getState(nextProps));
+        }
     }
 
     setInitialError = () => {
@@ -66,7 +77,7 @@ export default class AnnouncementBar extends React.PureComponent {
             if (this.props.canViewSystemErrors && this.props.siteURL === '') {
                 ErrorStore.storeLastError({notification: true, message: ErrorBarTypes.SITE_URL});
                 return;
-            } else if (!this.props.sendEmailNotifications) {
+            } else if (!this.props.sendEmailNotifications && this.props.enablePreviewMode) {
                 ErrorStore.storeLastError({notification: true, message: ErrorBarTypes.PREVIEW_MODE});
                 return;
             }
@@ -85,17 +96,17 @@ export default class AnnouncementBar extends React.PureComponent {
         }
     }
 
-    getState() {
+    getState(props = this.props) {
         const error = ErrorStore.getLastError();
         if (error && error.message) {
             return {message: error.message, color: null, textColor: null, type: error.type, allowDismissal: true};
         }
 
-        const bannerText = this.props.bannerText || '';
-        const allowDismissal = this.props.allowBannerDismissal;
-        const bannerDismissed = localStorage.getItem(StoragePrefixes.ANNOUNCEMENT + this.props.bannerText);
+        const bannerText = props.bannerText || '';
+        const allowDismissal = props.allowBannerDismissal;
+        const bannerDismissed = localStorage.getItem(StoragePrefixes.ANNOUNCEMENT + props.bannerText);
 
-        if (this.props.enableBanner &&
+        if (props.enableBanner &&
             bannerText.length > 0 &&
             (!bannerDismissed || !allowDismissal)
         ) {
@@ -103,8 +114,8 @@ export default class AnnouncementBar extends React.PureComponent {
             Utils.removePrefixFromLocalStorage(StoragePrefixes.ANNOUNCEMENT);
             return {
                 message: bannerText,
-                color: this.props.bannerColor,
-                textColor: this.props.bannerTextColor,
+                color: props.bannerColor,
+                textColor: props.bannerTextColor,
                 type: BAR_ANNOUNCEMENT_TYPE,
                 allowDismissal,
             };

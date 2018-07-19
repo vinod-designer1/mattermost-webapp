@@ -6,6 +6,7 @@ import React from 'react';
 import {OverlayTrigger, Popover, Tooltip} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 import {Permissions} from 'mattermost-redux/constants';
+import {memoizeResult} from 'mattermost-redux/utils/helpers';
 
 import 'bootstrap';
 
@@ -15,14 +16,10 @@ import * as GlobalActions from 'actions/global_actions.jsx';
 import * as WebrtcActions from 'actions/webrtc_actions.jsx';
 import WebrtcStore from 'stores/webrtc_store.jsx';
 import TeamStore from 'stores/team_store.jsx';
-import ChannelStore from 'stores/channel_store.jsx';
 
-import MessageWrapper from 'components/message_wrapper.jsx';
+import Markdown from 'components/markdown';
 import {Constants, NotificationLevels, RHSStates, UserStatuses, ModalIdentifiers} from 'utils/constants.jsx';
-import * as TextFormatting from 'utils/text_formatting.jsx';
-import {getSiteURL} from 'utils/url.jsx';
 import * as Utils from 'utils/utils.jsx';
-import {messageHtmlToComponent} from 'utils/post_utils.jsx';
 import ChannelInfoModal from 'components/channel_info_modal';
 import ChannelInviteModal from 'components/channel_invite_modal';
 import ChannelMembersModal from 'components/channel_members_modal';
@@ -42,11 +39,14 @@ import PinIcon from 'components/svg/pin_icon';
 import SearchIcon from 'components/svg/search_icon';
 import ToggleModalButtonRedux from 'components/toggle_modal_button_redux';
 import ChannelPermissionGate from 'components/permissions_gates/channel_permission_gate';
-import SystemPermissionGate from 'components/permissions_gates/system_permission_gate';
+import TeamPermissionGate from 'components/permissions_gates/team_permission_gate';
 
-import Pluggable from 'plugins/pluggable';
+import ChannelHeaderPlug from 'plugins/channel_header_plug';
 
 import HeaderIconWrapper from './components/header_icon_wrapper';
+
+const headerMarkdownOptions = {singleline: true, mentionHighlight: false, atMentions: true};
+const popoverMarkdownOptions = {singleline: false, mentionHighlight: false, atMentions: true};
 
 const SEARCH_BAR_MINIMUM_WINDOW_SIZE = 1140;
 
@@ -73,7 +73,6 @@ export default class ChannelHeader extends React.Component {
         dmUser: PropTypes.object,
         dmUserStatus: PropTypes.object,
         dmUserIsInCall: PropTypes.bool,
-        enableFormatting: PropTypes.bool.isRequired,
         isReadOnly: PropTypes.bool,
         rhsState: PropTypes.oneOf(
             Object.values(RHSStates)
@@ -99,6 +98,13 @@ export default class ChannelHeader extends React.Component {
             showChannelNotificationsModal: false,
             isBusy: WebrtcStore.isBusy(),
         };
+
+        this.getHeaderMarkdownOptions = memoizeResult((channelNamesMap) => (
+            {...headerMarkdownOptions, channelNamesMap}
+        ));
+        this.getPopoverMarkdownOptions = memoizeResult((channelNamesMap) => (
+            {...popoverMarkdownOptions, channelNamesMap}
+        ));
     }
 
     componentDidMount() {
@@ -116,7 +122,7 @@ export default class ChannelHeader extends React.Component {
         window.removeEventListener('resize', this.handleResize);
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (this.props.channel.id !== nextProps.channel.id) {
             this.props.actions.getCustomEmojisInText(nextProps.channel.header);
         }
@@ -307,21 +313,21 @@ export default class ChannelHeader extends React.Component {
         }
 
         const channel = this.props.channel;
+        const channelNamesMap = this.props.channel.props && this.props.channel.props.channel_mentions;
 
-        const textFormattingOptions = {singleline: true, mentionHighlight: false, siteURL: getSiteURL(), channelNamesMap: ChannelStore.getChannelNamesMap(), team: TeamStore.getCurrent(), atMentions: true};
         const popoverContent = (
             <Popover
                 id='header-popover'
                 bStyle='info'
                 bSize='large'
                 placement='bottom'
-                className='description'
+                className='channel-header__popover'
                 onMouseOver={this.handleOnMouseOver}
                 onMouseOut={this.handleOnMouseOut}
             >
-                <MessageWrapper
+                <Markdown
                     message={channel.header}
-                    options={textFormattingOptions}
+                    options={this.getPopoverMarkdownOptions(channelNamesMap)}
                 />
             </Popover>
         );
@@ -733,8 +739,9 @@ export default class ChannelHeader extends React.Component {
 
             if (!this.props.isDefault && channel.type === Constants.OPEN_CHANNEL) {
                 dropdownContents.push(
-                    <SystemPermissionGate
-                        permissions={[Permissions.MANAGE_SYSTEM]}
+                    <TeamPermissionGate
+                        teamId={teamId}
+                        permissions={[Permissions.MANAGE_TEAM]}
                         key='convert_channel_permission'
                     >
                         <li
@@ -757,7 +764,7 @@ export default class ChannelHeader extends React.Component {
                                 />
                             </ToggleModalButtonRedux>
                         </li>
-                    </SystemPermissionGate>
+                    </TeamPermissionGate>
                 );
             }
 
@@ -782,7 +789,7 @@ export default class ChannelHeader extends React.Component {
                             >
                                 <FormattedMessage
                                     id='channel_header.delete'
-                                    defaultMessage='Delete Channel'
+                                    defaultMessage='Archive Channel'
                                 />
                             </ToggleModalButtonRedux>
                         </li>
@@ -839,35 +846,6 @@ export default class ChannelHeader extends React.Component {
 
         let headerTextContainer;
         if (channel.header) {
-            let headerTextElement;
-            const formattedText = TextFormatting.formatText(channel.header, textFormattingOptions);
-            if (this.props.enableFormatting) {
-                headerTextElement = (
-                    <div
-                        id='channelHeaderDescription'
-                        className='channel-header__description'
-                    >
-                        {dmHeaderIconStatus}
-                        {dmHeaderTextStatus}
-                        <span onClick={Utils.handleFormattedTextClick}>
-                            {messageHtmlToComponent(formattedText, false, {mentions: false})}
-                        </span>
-                    </div>
-                );
-            } else {
-                headerTextElement = (
-                    <div
-                        id='channelHeaderDescription'
-                        onClick={Utils.handleFormattedTextClick}
-                        className='channel-header__description light'
-                    >
-                        {dmHeaderIconStatus}
-                        {dmHeaderTextStatus}
-                        {channel.header}
-                    </div>
-                );
-            }
-
             headerTextContainer = (
                 <OverlayTrigger
                     trigger={'click'}
@@ -876,7 +854,19 @@ export default class ChannelHeader extends React.Component {
                     overlay={popoverContent}
                     ref='headerOverlay'
                 >
-                    {headerTextElement}
+                    <div
+                        id='channelHeaderDescription'
+                        className='channel-header__description'
+                    >
+                        {dmHeaderIconStatus}
+                        {dmHeaderTextStatus}
+                        <span onClick={Utils.handleFormattedTextClick}>
+                            <Markdown
+                                message={channel.header}
+                                options={this.getHeaderMarkdownOptions(channelNamesMap)}
+                            />
+                        </span>
+                    </div>
                 </OverlayTrigger>
             );
         } else {
@@ -998,7 +988,10 @@ export default class ChannelHeader extends React.Component {
                         onClick={this.unmute}
                         className={'style--none color--link channel-header__mute inactive'}
                     >
-                        <i className={'icon fa fa-bell-slash-o'}/>
+                        <i
+                            className={'icon fa fa-bell-slash-o'}
+                            title={Utils.localizeMessage('generic_icons.muted', 'Muted Icon')}
+                        />
                     </button>
                 </OverlayTrigger>
             );
@@ -1063,6 +1056,7 @@ export default class ChannelHeader extends React.Component {
                                         <span
                                             id='channelHeaderDropdownIcon'
                                             className='fa fa-angle-down header-dropdown__icon'
+                                            title={Utils.localizeMessage('generic_icons.dropdown', 'Dropdown Icon')}
                                         />
                                     </button>
                                     <ul
@@ -1085,9 +1079,10 @@ export default class ChannelHeader extends React.Component {
                     <div className='flex-child'>
                         {popoverListMembers}
                     </div>
-                    <div className='flex-child'>
-                        <Pluggable pluggableName='ChannelHeaderButton'/>
-                    </div>
+                    <ChannelHeaderPlug
+                        channel={this.props.channel}
+                        channelMember={this.props.channelMember}
+                    />
                     <HeaderIconWrapper
                         iconComponent={
                             <PinIcon

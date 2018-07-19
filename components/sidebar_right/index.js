@@ -8,8 +8,15 @@ import {getChannel} from 'mattermost-redux/selectors/entities/channels';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import PostStore from 'stores/post_store';
-import {getPinnedPosts, getFlaggedPosts} from 'actions/views/rhs';
-import {getRhsState, getSelectedPostId, getSelectedChannelId, getPreviousRhsState, getIsRhsOpen} from 'selectors/rhs';
+import {getPinnedPosts, getFlaggedPosts, setRhsExpanded} from 'actions/views/rhs';
+import {
+    getIsRhsExpanded,
+    getIsRhsOpen,
+    getRhsState,
+    getSelectedPostId,
+    getSelectedChannelId,
+    getPreviousRhsState,
+} from 'selectors/rhs';
 import {RHSStates} from 'utils/constants.jsx';
 
 import SidebarRight from './sidebar_right.jsx';
@@ -35,6 +42,7 @@ function mapStateToProps(state) {
     }
 
     return {
+        isExpanded: getIsRhsExpanded(state),
         isOpen: getIsRhsOpen(state),
         channel,
         currentUser: getCurrentUser(state),
@@ -52,6 +60,7 @@ function mapDispatchToProps(dispatch) {
         actions: bindActionCreators({
             getPinnedPosts,
             getFlaggedPosts,
+            setRhsExpanded,
         }, dispatch),
     };
 }

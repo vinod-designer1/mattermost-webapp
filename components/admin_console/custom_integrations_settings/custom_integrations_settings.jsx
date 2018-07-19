@@ -34,7 +34,7 @@ export class WebhookSettings extends AdminSettings {
         };
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         this.props.actions.loadRolesIfNeeded(['team_user', 'system_user']);
         if (this.props.roles.system_user &&
             this.props.roles.team_user) {
@@ -42,7 +42,7 @@ export class WebhookSettings extends AdminSettings {
         }
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (!this.state.loaded &&
             nextProps.roles.system_user &&
             nextProps.roles.team_user) {
@@ -303,24 +303,25 @@ export class WebhookSettings extends AdminSettings {
                     onChange={this.handleChange}
                     setByEnv={this.isSetByEnv('ServiceSettings.EnableOAuthServiceProvider')}
                 />
-                <BooleanSetting
-                    id='enableOnlyAdminIntegrations'
-                    label={
-                        <FormattedMessage
-                            id='admin.service.integrationAdmin'
-                            defaultMessage='Restrict managing integrations to Admins:'
-                        />
-                    }
-                    helpText={
-                        <FormattedMessage
-                            id='admin.service.integrationAdminDesc'
-                            defaultMessage='When true, webhooks and slash commands can only be created, edited and viewed by Team and System Admins, and OAuth 2.0 applications by System Admins. Integrations are available to all users after they have been created by the Admin.'
-                        />
-                    }
-                    value={this.state.enableOnlyAdminIntegrations}
-                    onChange={this.handleChange}
-                    setByEnv={false}
-                />
+                {this.props.license.IsLicensed === 'false' &&
+                    <BooleanSetting
+                        id='enableOnlyAdminIntegrations'
+                        label={
+                            <FormattedMessage
+                                id='admin.service.integrationAdmin'
+                                defaultMessage='Restrict managing integrations to Admins:'
+                            />
+                        }
+                        helpText={
+                            <FormattedMessage
+                                id='admin.service.integrationAdminDesc'
+                                defaultMessage='When true, webhooks and slash commands can only be created, edited and viewed by Team and System Admins, and OAuth 2.0 applications by System Admins. Integrations are available to all users after they have been created by the Admin.'
+                            />
+                        }
+                        value={this.state.enableOnlyAdminIntegrations}
+                        onChange={this.handleChange}
+                        setByEnv={false}
+                    />}
                 <BooleanSetting
                     id='enablePostUsernameOverride'
                     label={

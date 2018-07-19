@@ -25,7 +25,6 @@ jest.mock('utils/policy_roles_adapter', () => ({
 
 describe('components/select_team/SelectTeam', () => {
     const baseProps = {
-        isLicensed: true,
         currentUserRoles: 'system_admin',
         enableTeamCreation: true,
         isMemberOfTeam: true,
@@ -47,7 +46,6 @@ describe('components/select_team/SelectTeam', () => {
         expect(wrapper).toMatchSnapshot();
 
         // on componentWillMount
-        expect(props.actions.loadRolesIfNeeded).toHaveBeenCalledTimes(1);
         expect(props.actions.loadRolesIfNeeded).toHaveBeenCalledWith([General.SYSTEM_ADMIN_ROLE, General.SYSTEM_USER_ROLE]);
 
         // on componentDidMount

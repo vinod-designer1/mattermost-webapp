@@ -42,14 +42,14 @@ export class UsersAndTeamsSettings extends AdminSettings {
         };
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         this.props.actions.loadRolesIfNeeded(['system_user']);
         if (this.props.roles.system_user) {
             this.loadPoliciesIntoState(this.props);
         }
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (!this.state.loaded && nextProps.roles.system_user) {
             this.loadPoliciesIntoState(nextProps);
         }
@@ -258,24 +258,25 @@ export class UsersAndTeamsSettings extends AdminSettings {
                     onChange={this.handleChange}
                     setByEnv={this.isSetByEnv('TeamSetting.EnableUserCreation')}
                 />
-                <BooleanSetting
-                    id='enableTeamCreation'
-                    label={
-                        <FormattedMessage
-                            id='admin.team.teamCreationTitle'
-                            defaultMessage='Enable Team Creation: '
-                        />
-                    }
-                    helpText={
-                        <FormattedMessage
-                            id='admin.team.teamCreationDescription'
-                            defaultMessage='When false, only System Administrators can create teams.'
-                        />
-                    }
-                    value={this.state.enableTeamCreation}
-                    onChange={this.handleChange}
-                    setByEnv={false}
-                />
+                {this.props.license.IsLicensed === 'false' &&
+                    <BooleanSetting
+                        id='enableTeamCreation'
+                        label={
+                            <FormattedMessage
+                                id='admin.team.teamCreationTitle'
+                                defaultMessage='Enable Team Creation: '
+                            />
+                        }
+                        helpText={
+                            <FormattedMessage
+                                id='admin.team.teamCreationDescription'
+                                defaultMessage='When false, only System Administrators can create teams.'
+                            />
+                        }
+                        value={this.state.enableTeamCreation}
+                        onChange={this.handleChange}
+                        setByEnv={false}
+                    />}
                 <TextSetting
                     id='maxUsersPerTeam'
                     label={
@@ -307,7 +308,7 @@ export class UsersAndTeamsSettings extends AdminSettings {
                     helpText={
                         <FormattedMessage
                             id='admin.team.maxChannelsDescription'
-                            defaultMessage='Maximum total number of channels per team, including both active and deleted channels.'
+                            defaultMessage='Maximum total number of channels per team, including both active and archived channels.'
                         />
                     }
                     value={this.state.maxChannelsPerTeam}

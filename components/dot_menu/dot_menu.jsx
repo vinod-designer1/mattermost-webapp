@@ -85,7 +85,7 @@ export default class DotMenu extends Component {
         $('#' + this.props.idPrefix + '_dropdown' + this.props.post.id).on('hidden.bs.dropdown', () => this.props.handleDropdownOpened(false));
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (nextProps.post !== this.props.post) {
             this.setState({
                 canDelete: PostUtils.canDeletePost(nextProps.post),
@@ -117,7 +117,7 @@ export default class DotMenu extends Component {
         const isSystemMessage = PostUtils.isSystemMessage(this.props.post);
         const isMobile = Utils.isMobile();
 
-        if (this.props.idPrefix === Constants.CENTER && ((!isMobile || isSystemMessage) && !this.state.canDelete && !this.state.canEdit)) {
+        if (this.props.idPrefix === Constants.CENTER && isSystemMessage && !this.state.canDelete && !this.state.canEdit) {
             return null;
         }
 

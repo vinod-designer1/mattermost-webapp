@@ -11,7 +11,7 @@ import PostMessageContainer from 'components/post_view/post_message_view';
 import FileAttachmentListContainer from 'components/file_attachment_list';
 import CommentIcon from 'components/common/comment_icon.jsx';
 import DotMenu from 'components/dot_menu';
-import ProfilePicture from 'components/profile_picture.jsx';
+import PostProfilePicture from 'components/post_profile_picture';
 import UserProfile from 'components/user_profile.jsx';
 import DateSeparator from 'components/post_view/date_separator.jsx';
 import PostBodyAdditionalContent from 'components/post_view/post_body_additional_content';
@@ -30,6 +30,11 @@ export default class SearchResultsItem extends React.PureComponent {
         *  Data used for rendering post
         */
         post: PropTypes.object,
+
+        /**
+        * An array of strings in this post that were matched by the search
+        */
+        matches: PropTypes.array,
 
         /**
         *  count used for passing down to PostFlagIcon, DotMenu and CommentIcon
@@ -92,21 +97,12 @@ export default class SearchResultsItem extends React.PureComponent {
         enablePostUsernameOverride: PropTypes.bool.isRequired,
 
         /**
-        *  Function used for shrinking LHS
-        *  on click of jump to message in expanded mode
-        */
-        shrink: PropTypes.func,
-
-        /**
-        *  Function used for selecting a post to comment
-        */
-        onSelect: PropTypes.func,
-
-        /**
         *  Function used for closing LHS
         */
         actions: PropTypes.shape({
             closeRightHandSide: PropTypes.func.isRequired,
+            selectPost: PropTypes.func.isRequired,
+            setRhsExpanded: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -118,15 +114,9 @@ export default class SearchResultsItem extends React.PureComponent {
         };
     }
 
-    shrinkSidebar = () => {
-        setTimeout(() => {
-            this.props.shrink();
-        });
-    };
-
     handleFocusRHSClick = (e) => {
         e.preventDefault();
-        this.props.onSelect(this.props.post);
+        this.props.actions.selectPost(this.props.post);
     };
 
     handleJumpClick = () => {
@@ -134,7 +124,7 @@ export default class SearchResultsItem extends React.PureComponent {
             this.props.actions.closeRightHandSide();
         }
 
-        this.shrinkSidebar();
+        this.props.actions.setRhsExpanded(false);
         browserHistory.push(`/${this.props.currentTeamName}/pl/${this.props.post.id}`);
     };
 
@@ -217,13 +207,13 @@ export default class SearchResultsItem extends React.PureComponent {
         }
 
         const profilePic = (
-            <ProfilePicture
-                src={PostUtils.getProfilePicSrcForPost(post, user)}
-                user={this.props.user}
+            <PostProfilePicture
+                compactDisplay={this.props.compactDisplay}
+                post={post}
+                user={user}
                 status={this.props.status}
                 isBusy={this.props.isBusy}
             />
-
         );
 
         const profilePicContainer = (<div className='post__img'>{profilePic}</div>);
@@ -266,7 +256,7 @@ export default class SearchResultsItem extends React.PureComponent {
             );
 
             rhsControls = (
-                <div className='col__controls'>
+                <div className='col__controls col__reply'>
                     <DotMenu
                         idPrefix={Constants.SEARCH_POST}
                         idCount={this.props.lastPostCount}
@@ -294,11 +284,18 @@ export default class SearchResultsItem extends React.PureComponent {
             );
 
             message = (
-                <PostBodyAdditionalContent post={post}>
+                <PostBodyAdditionalContent
+                    post={post}
+                    options={{
+                        searchTerm: this.props.term,
+                        searchMatches: this.props.matches,
+                    }}
+                >
                     <PostMessageContainer
                         post={post}
                         options={{
                             searchTerm: this.props.term,
+                            searchMatches: this.props.matches,
                             mentionHighlight: this.props.isMentionSearch,
                         }}
                     />

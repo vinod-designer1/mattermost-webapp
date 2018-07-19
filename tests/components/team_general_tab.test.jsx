@@ -12,14 +12,15 @@ describe('components/TeamSettings', () => {
         team: {id: 'team_id'},
         maxFileSize: 50,
         activeSection: 'team_icon',
-        updateSection: () => {},    //eslint-disable-line no-empty-function
-        closeModal: () => {},       //eslint-disable-line no-empty-function
-        collapseModal: () => {},    //eslint-disable-line no-empty-function
+        updateSection: () => {}, //eslint-disable-line no-empty-function
+        closeModal: () => {}, //eslint-disable-line no-empty-function
+        collapseModal: () => {}, //eslint-disable-line no-empty-function
         actions: {
-            updateTeam: () => {},   //eslint-disable-line no-empty-function
-            removeTeamIcon: () => {},  //eslint-disable-line no-empty-function
-            setTeamIcon: () => {},  //eslint-disable-line no-empty-function
+            updateTeam: () => {}, //eslint-disable-line no-empty-function
+            removeTeamIcon: () => {}, //eslint-disable-line no-empty-function
+            setTeamIcon: () => {}, //eslint-disable-line no-empty-function
         },
+        canInviteTeamMembers: true,
     };
 
     test('should handle bad updateTeamIcon function call', () => {
@@ -102,5 +103,15 @@ describe('components/TeamSettings', () => {
 
         expect(actions.removeTeamIcon).toHaveBeenCalledTimes(1);
         expect(actions.removeTeamIcon).toHaveBeenCalledWith(props.team.id);
+    });
+
+    test('hide invite code if no permissions for team inviting', () => {
+        const props = {...defaultProps, canInviteTeamMembers: false};
+
+        const wrapper1 = shallow(<GeneralTab {...defaultProps}/>);
+        const wrapper2 = shallow(<GeneralTab {...props}/>);
+
+        expect(wrapper1).toMatchSnapshot();
+        expect(wrapper2).toMatchSnapshot();
     });
 });

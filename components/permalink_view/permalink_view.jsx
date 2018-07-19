@@ -7,6 +7,7 @@ import {FormattedMessage} from 'react-intl';
 import {Link} from 'react-router-dom';
 
 import ChannelHeader from 'components/channel_header';
+import {localizeMessage} from 'utils/utils.jsx';
 import PostView from 'components/post_view';
 import {emitPostFocusEvent} from 'actions/global_actions.jsx';
 
@@ -41,7 +42,7 @@ export default class PermalinkView extends React.PureComponent {
         document.body.classList.remove('app__body');
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (this.props.match.params.postid !== nextProps.match.params.postid) {
             this.doPermalinkEvent(nextProps);
         }
@@ -95,7 +96,10 @@ export default class PermalinkView extends React.PureComponent {
                             id='center_panel.recent'
                             defaultMessage='Click here to jump to recent messages. '
                         />
-                        <i className='fa fa-arrow-down'/>
+                        <i
+                            className='fa fa-arrow-down'
+                            title={localizeMessage('center_panel.recent.icon', 'Jump to recent messages Icon')}
+                        />
                     </Link>
                 </div>
             </div>

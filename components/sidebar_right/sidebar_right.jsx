@@ -18,6 +18,7 @@ import SearchResults from 'components/search_results';
 
 export default class SidebarRight extends React.Component {
     static propTypes = {
+        isExpanded: PropTypes.bool.isRequired,
         isOpen: PropTypes.bool.isRequired,
         currentUser: PropTypes.object,
         channel: PropTypes.object,
@@ -28,8 +29,9 @@ export default class SidebarRight extends React.Component {
         isPinnedPosts: PropTypes.bool,
         previousRhsState: PropTypes.string,
         actions: PropTypes.shape({
-            getPinnedPosts: PropTypes.func,
-            getFlaggedPosts: PropTypes.func,
+            getPinnedPosts: PropTypes.func.isRequired,
+            getFlaggedPosts: PropTypes.func.isRequired,
+            setRhsExpanded: PropTypes.func.isRequired,
         }),
     }
 
@@ -37,10 +39,6 @@ export default class SidebarRight extends React.Component {
         super(props);
 
         this.plScrolledToBottom = true;
-
-        this.state = {
-            expanded: false,
-        };
     }
 
     componentDidMount() {
@@ -51,18 +49,12 @@ export default class SidebarRight extends React.Component {
         PostStore.removePostPinnedChangeListener(this.onPostPinnedChange);
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         const isOpen = this.props.searchVisible || this.props.postRightVisible;
         const willOpen = nextProps.searchVisible || nextProps.postRightVisible;
 
         if (!isOpen && willOpen) {
             trackEvent('ui', 'ui_rhs_opened');
-        }
-
-        if (!isOpen && willOpen) {
-            this.setState({
-                expanded: false,
-            });
         }
     }
 
@@ -72,7 +64,7 @@ export default class SidebarRight extends React.Component {
         const wasOpen = prevProps.searchVisible || prevProps.postRightVisible;
 
         if (isOpen && !wasOpen) {
-            setTimeout(() => postListScrollChange(), 0);
+            setTimeout(postListScrollChange, 0);
         }
     }
 
@@ -83,14 +75,8 @@ export default class SidebarRight extends React.Component {
     }
 
     onShrink = () => {
-        this.setState({
-            expanded: false,
-        });
-    }
-
-    toggleSize = () => {
-        this.setState({expanded: !this.state.expanded});
-    }
+        this.props.actions.setRhsExpanded(false);
+    };
 
     render() {
         const {
@@ -107,7 +93,7 @@ export default class SidebarRight extends React.Component {
         let content = null;
         let expandedClass = '';
 
-        if (this.state.expanded) {
+        if (this.props.isExpanded) {
             expandedClass = 'sidebar--right--expanded';
         }
 

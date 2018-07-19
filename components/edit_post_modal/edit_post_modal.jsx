@@ -74,6 +74,7 @@ export default class EditPostModal extends React.PureComponent {
             addMessageIntoHistory: PropTypes.func.isRequired,
             editPost: PropTypes.func.isRequired,
             hideEditPostModal: PropTypes.func.isRequired,
+            openModal: PropTypes.func.isRequired,
         }).isRequired,
     }
 
@@ -88,7 +89,7 @@ export default class EditPostModal extends React.PureComponent {
         };
     }
 
-    componentWillUpdate(nextProps) {
+    UNSAFE_componentWillUpdate(nextProps) { // eslint-disable-line camelcase
         if (!this.props.editingPost.show && nextProps.editingPost.show) {
             this.setState({
                 editText: nextProps.editingPost.post.message_source || nextProps.editingPost.post.message,
@@ -128,6 +129,17 @@ export default class EditPostModal extends React.PureComponent {
 
         this.setState({showEmojiPicker: false});
 
+        this.refs.editbox.focus();
+    }
+
+    handleGifClick = (gif) => {
+        if (this.state.editText === '') {
+            this.setState({editText: gif});
+        } else {
+            const newMessage = (/\s+$/.test(this.state.editText)) ? this.state.editText + gif : this.state.editText + ' ' + gif;
+            this.setState({editText: newMessage});
+        }
+        this.setState({showEmojiPicker: false});
         this.refs.editbox.focus();
     }
 
@@ -263,6 +275,8 @@ export default class EditPostModal extends React.PureComponent {
                         target={this.getEditPostControls}
                         onHide={this.hideEmojiPicker}
                         onEmojiClick={this.handleEmojiClick}
+                        onGifClick={this.handleGifClick}
+                        enableGifPicker={this.props.config.EnableGifPicker === 'true'}
                         rightOffset={50}
                         topOffset={-20}
                     />

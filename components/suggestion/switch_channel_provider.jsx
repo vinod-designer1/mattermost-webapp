@@ -17,7 +17,13 @@ import {getMyChannelMemberships} from 'mattermost-redux/selectors/entities/commo
 import {getBool} from 'mattermost-redux/selectors/entities/preferences';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
-import {searchProfiles, getUserIdsInChannels, getUser} from 'mattermost-redux/selectors/entities/users';
+import {
+    getCurrentUserId,
+    getUserIdsInChannels,
+    getUser,
+    searchProfiles,
+} from 'mattermost-redux/selectors/entities/users';
+import * as ChannelActions from 'mattermost-redux/actions/channels';
 
 import GlobeIcon from 'components/svg/globe_icon';
 import LockIcon from 'components/svg/lock_icon';
@@ -155,14 +161,14 @@ function makeChannelSearchFilter(channelPrefix) {
         let searchString = channel.display_name;
 
         if (channel.type === Constants.GM_CHANNEL || channel.type === Constants.DM_CHANNEL) {
-            const usersInChannel = usersInChannels[channel.id] || [];
+            const usersInChannel = usersInChannels[channel.id] || new Set([]);
 
             // In case the channel is a DM and the profilesInChannel is not populated
             if (!usersInChannel.length && channel.type === Constants.DM_CHANNEL) {
                 const userId = Utils.getUserIdFromChannelId(channel.name);
                 const user = getUser(curState, userId);
                 if (user) {
-                    usersInChannel.push(userId);
+                    usersInChannel.add(userId);
                 }
             }
 
@@ -221,13 +227,14 @@ export default class SwitchChannelProvider extends Provider {
             usersAsync = Client4.autocompleteUsers(channelPrefix, '', '');
         }
 
-        const channelsAsync = Client4.searchChannels(teamId, channelPrefix);
+        const channelsAsync = ChannelActions.searchChannels(teamId, channelPrefix)(store.dispatch, store.getState);
 
         let usersFromServer = [];
         let channelsFromServer = [];
         try {
             usersFromServer = await usersAsync;
-            channelsFromServer = await channelsAsync;
+            const {data} = await channelsAsync;
+            channelsFromServer = data;
         } catch (err) {
             AppDispatcher.handleServerAction({
                 type: ActionTypes.RECEIVED_ERROR,
@@ -240,9 +247,10 @@ export default class SwitchChannelProvider extends Provider {
         }
 
         const users = Object.assign([], searchProfiles(state, channelPrefix, false)).concat(usersFromServer.users);
+        const currentUserId = getCurrentUserId(state);
         store.dispatch({
             type: UserTypes.RECEIVED_PROFILES_LIST,
-            data: users,
+            data: users.filter((user) => user.id !== currentUserId),
         });
         const channels = getChannelsInCurrentTeam(state).concat(getDirectChannels(state)).concat(channelsFromServer);
         this.formatChannelsAndDispatch(channelPrefix, suggestionId, channels, users);
@@ -410,8 +418,14 @@ export default class SwitchChannelProvider extends Provider {
             if (channel.type === Constants.GM_CHANNEL) {
                 wrappedChannel.name = getChannelDisplayName(channel);
             } else if (channel.type === Constants.DM_CHANNEL) {
+                const user = getUser(getState(), Utils.getUserIdFromChannelId(channel.name));
+
+                if (!user) {
+                    continue;
+                }
+
                 wrappedChannel = this.userWrappedChannel(
-                    getUser(getState(), Utils.getUserIdFromChannelId(channel.name)),
+                    user,
                     channel
                 );
             }

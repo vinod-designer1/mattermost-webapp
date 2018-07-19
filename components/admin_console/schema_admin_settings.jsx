@@ -17,6 +17,7 @@ import TextSetting from 'components/admin_console/text_setting.jsx';
 import DropdownSetting from 'components/admin_console/dropdown_setting.jsx';
 import MultiSelectSetting from 'components/admin_console/multiselect_settings.jsx';
 import RadioSetting from 'components/admin_console/radio_setting.jsx';
+import ColorSetting from 'components/admin_console/color_setting.jsx';
 import GeneratedSetting from 'components/admin_console/generated_setting.jsx';
 import UserAutocompleteSetting from 'components/admin_console/user_autocomplete_setting.jsx';
 import SettingsGroup from 'components/admin_console/settings_group.jsx';
@@ -28,6 +29,7 @@ export default class SchemaAdminSettings extends AdminSettings {
         this.buildSettingFunctions = {
             [SettingsTypes.TYPE_TEXT]: this.buildTextSetting,
             [SettingsTypes.TYPE_NUMBER]: this.buildTextSetting,
+            [SettingsTypes.TYPE_COLOR]: this.buildColorSetting,
             [SettingsTypes.TYPE_BOOL]: this.buildBoolSetting,
             [SettingsTypes.TYPE_DROPDOWN]: this.buildDropdownSetting,
             [SettingsTypes.TYPE_RADIO]: this.buildRadioSetting,
@@ -41,7 +43,7 @@ export default class SchemaAdminSettings extends AdminSettings {
         };
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (nextProps.schema !== this.props.schema) {
             this.setState(this.getStateFromConfig(nextProps.config, nextProps.schema));
         }
@@ -57,7 +59,13 @@ export default class SchemaAdminSettings extends AdminSettings {
                     return;
                 }
 
-                this.setConfigValue(config, setting.key, this.getSettingValue(setting));
+                let value = this.getSettingValue(setting);
+
+                if (setting.onConfigSave) {
+                    value = setting.onConfigSave(value);
+                }
+
+                this.setConfigValue(config, setting.key, value);
             });
         }
 
@@ -74,7 +82,11 @@ export default class SchemaAdminSettings extends AdminSettings {
                     return;
                 }
 
-                const value = this.getConfigValue(config, setting.key);
+                let value = this.getConfigValue(config, setting.key);
+
+                if (setting.onConfigLoad) {
+                    value = setting.onConfigLoad(value);
+                }
 
                 state[setting.key] = value == null ? setting.default : value;
             });
@@ -224,6 +236,7 @@ export default class SchemaAdminSettings extends AdminSettings {
                 key={this.props.schema.id + '_text_' + setting.key}
                 requestAction={setting.action}
                 helpText={this.renderHelpText(setting)}
+                loadingText={Utils.localizeMessage(setting.loading, setting.loading_default)}
                 buttonText={<span>{this.renderLabel(setting)}</span>}
                 showSuccessMessage={Boolean(setting.success_message)}
                 includeDetailedError={true}
@@ -255,6 +268,21 @@ export default class SchemaAdminSettings extends AdminSettings {
                 value={this.state[setting.key] || ''}
                 disabled={this.isDisabled(setting)}
                 setByEnv={this.isSetByEnv(setting.key)}
+                onChange={this.handleChange}
+            />
+        );
+    }
+
+    buildColorSetting = (setting) => {
+        return (
+            <ColorSetting
+                key={this.props.schema.id + '_text_' + setting.key}
+                id={setting.key}
+                label={this.renderLabel(setting)}
+                helpText={this.renderHelpText(setting)}
+                placeholder={Utils.localizeMessage(setting.placeholder, setting.placeholder_default)}
+                value={this.state[setting.key] || ''}
+                disabled={this.isDisabled(setting)}
                 onChange={this.handleChange}
             />
         );
@@ -443,6 +471,11 @@ export default class SchemaAdminSettings extends AdminSettings {
         return (
             <CustomComponent
                 key={this.props.schema.id + '_userautocomplete_' + setting.key}
+                id={setting.key}
+                value={this.state[setting.key] || ''}
+                disabled={this.isDisabled(setting)}
+                setByEnv={this.isSetByEnv(setting.key)}
+                onChange={this.handleChange}
             />
         );
     }
@@ -458,7 +491,12 @@ export default class SchemaAdminSettings extends AdminSettings {
         if (schema.settings) {
             schema.settings.forEach((setting) => {
                 if (this.buildSettingFunctions[setting.type] && !this.isHidden(setting)) {
-                    settingsList.push(this.buildSettingFunctions[setting.type](setting));
+                    // This is a hack required as plugin settings are case insensitive
+                    let s = setting;
+                    if (this.isPlugin) {
+                        s = {...setting, key: setting.key.toLowerCase()};
+                    }
+                    settingsList.push(this.buildSettingFunctions[setting.type](s));
                 }
             });
         }
@@ -495,7 +533,7 @@ export default class SchemaAdminSettings extends AdminSettings {
     render = () => {
         const schema = this.props.schema;
 
-        if (schema.component) {
+        if (schema && schema.component) {
             const CustomComponent = schema.component;
             return (<CustomComponent {...this.props}/>);
         }

@@ -87,6 +87,15 @@ export async function adminResetPassword(userId, currentPassword, password, succ
     }
 }
 
+export async function adminResetEmail(user, success, error) {
+    const {data, error: err} = await UserActions.patchUser(user)(dispatch, getState);
+    if (data && success) {
+        success(data);
+    } else if (err && error) {
+        error({id: err.server_error_id, ...err});
+    }
+}
+
 export async function samlCertificateStatus(success, error) {
     const {data, error: err} = await AdminActions.getSamlCertificateStatus()(dispatch, getState);
     if (data && success) {
@@ -265,6 +274,15 @@ export async function getUsersPerDayAnalytics(teamId) {
 
 export async function elasticsearchTest(config, success, error) {
     const {data, error: err} = await AdminActions.testElasticsearch(config)(dispatch, getState);
+    if (data && success) {
+        success(data);
+    } else if (err && error) {
+        error({id: err.server_error_id, ...err});
+    }
+}
+
+export async function testS3Connection(success, error) {
+    const {data, error: err} = await AdminActions.testS3Connection()(dispatch, getState);
     if (data && success) {
         success(data);
     } else if (err && error) {

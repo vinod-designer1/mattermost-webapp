@@ -15,7 +15,6 @@ import SettingPicture from 'components/setting_picture.jsx';
 const ACCEPTED_TEAM_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/bmp'];
 
 export default class GeneralTab extends React.Component {
-
     static propTypes = {
         updateSection: PropTypes.func.isRequired,
         team: PropTypes.object.isRequired,
@@ -28,6 +27,7 @@ export default class GeneralTab extends React.Component {
             removeTeamIcon: PropTypes.func.isRequired,
             setTeamIcon: PropTypes.func.isRequired,
         }).isRequired,
+        canInviteTeamMembers: PropTypes.bool.isRequired,
     }
 
     constructor(props) {
@@ -75,7 +75,7 @@ export default class GeneralTab extends React.Component {
         };
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         this.setState({
             name: nextProps.team.display_name,
             description: nextProps.team.description,
@@ -276,7 +276,11 @@ export default class GeneralTab extends React.Component {
                 serverError: error.message,
             });
         } else {
-            this.setState({loadingIcon: false});
+            this.setState({
+                loadingIcon: false,
+                submitActive: false,
+            });
+            this.updateSection('');
         }
     }
 
@@ -419,7 +423,7 @@ export default class GeneralTab extends React.Component {
 
         let inviteSection;
 
-        if (this.props.activeSection === 'invite_id') {
+        if (this.props.activeSection === 'invite_id' && this.props.canInviteTeamMembers) {
             const inputs = [];
 
             inputs.push(
@@ -480,7 +484,7 @@ export default class GeneralTab extends React.Component {
                     updateSection={this.handleUpdateSection}
                 />
             );
-        } else {
+        } else if (this.props.canInviteTeamMembers) {
             inviteSection = (
                 <SettingItemMin
                     title={Utils.localizeMessage('general_tab.codeTitle', 'Invite Code')}
@@ -701,6 +705,7 @@ export default class GeneralTab extends React.Component {
                         <div className='modal-back'>
                             <i
                                 className='fa fa-angle-left'
+                                title={Utils.localizeMessage('generic_icons.back', 'Back Icon')}
                                 onClick={this.props.collapseModal}
                             />
                         </div>

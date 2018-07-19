@@ -42,7 +42,7 @@ export default class Logs extends React.Component {
         );
     }
 
-    componentWillUpdate(nextProps, nextState) {
+    UNSAFE_componentWillUpdate(nextProps, nextState) { // eslint-disable-line camelcase
         if (this.state.page !== nextState.page) {
             this.props.actions.getLogs(nextState.page, nextState.perPage).then(
                 () => this.setState({loadingLogs: false})
@@ -83,7 +83,7 @@ export default class Logs extends React.Component {
         }
 
         return (
-            <div>
+            <div className='wrapper--admin'>
                 <h3 className='admin-console-header'>
                     <FormattedMessage
                         id='admin.logs.title'

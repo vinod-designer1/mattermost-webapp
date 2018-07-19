@@ -16,6 +16,8 @@ import StatisticCount from 'components/analytics/statistic_count.jsx';
 import TableChart from 'components/analytics/table_chart.jsx';
 import LoadingScreen from 'components/loading_screen.jsx';
 
+import {getMonthLong} from 'utils/i18n';
+
 import {formatPostsPerDayData, formatUsersWithPostsPerDayData} from '../format.jsx';
 
 const LAST_ANALYTICS_TEAM = 'last_analytics_team';
@@ -32,6 +34,11 @@ export default class TeamAnalytics extends React.Component {
          * Initial team to load analytics for
          */
         initialTeam: PropTypes.object,
+
+        /**
+         * The locale of the current user
+          */
+        locale: PropTypes.string.isRequired,
 
         actions: PropTypes.shape({
 
@@ -70,7 +77,7 @@ export default class TeamAnalytics extends React.Component {
         this.props.actions.getTeams(0, 1000);
     }
 
-    componentWillUpdate(nextProps, nextState) {
+    UNSAFE_componentWillUpdate(nextProps, nextState) { // eslint-disable-line camelcase
         if (nextState.team && nextState.team !== this.state.team) {
             this.getData(nextState.team.id);
         }
@@ -213,10 +220,20 @@ export default class TeamAnalytics extends React.Component {
             );
         }
 
-        const recentActiveUsers = formatRecentUsersData(this.state.recentlyActiveUsers);
-        const newlyCreatedUsers = formatNewUsersData(this.state.newUsers);
+        const recentActiveUsers = formatRecentUsersData(this.state.recentlyActiveUsers, this.props.locale);
+        const newlyCreatedUsers = formatNewUsersData(this.state.newUsers, this.props.locale);
 
-        const teams = this.props.teams.map((team) => {
+        const teams = this.props.teams.sort((a, b) => {
+            const aName = a.display_name.toUpperCase();
+            const bName = b.display_name.toUpperCase();
+            if (aName === bName) {
+                return 0;
+            }
+            if (aName > bName) {
+                return 1;
+            }
+            return -1;
+        }).map((team) => {
             return (
                 <option
                     key={team.id}
@@ -231,7 +248,7 @@ export default class TeamAnalytics extends React.Component {
             <div className='wrapper--fixed team_statistics'>
                 <div className='admin-console-header team-statistics__header-row'>
                     <div className='team-statistics__header'>
-                        <h3>
+                        <h3 className='admin-console-header'>
                             <FormattedMessage
                                 id='analytics.team.title'
                                 defaultMessage='Team Statistics for {team}'
@@ -312,7 +329,7 @@ export default class TeamAnalytics extends React.Component {
     }
 }
 
-export function formatRecentUsersData(data) {
+export function formatRecentUsersData(data, locale) {
     if (data == null) {
         return [];
     }
@@ -324,7 +341,7 @@ export function formatRecentUsersData(data) {
             <FormattedDate
                 value={user.last_activity_at}
                 day='numeric'
-                month='long'
+                month={getMonthLong(locale)}
                 year='numeric'
                 hour12={true}
                 hour='2-digit'
@@ -339,7 +356,7 @@ export function formatRecentUsersData(data) {
     return formattedData;
 }
 
-export function formatNewUsersData(data) {
+export function formatNewUsersData(data, locale) {
     if (data == null) {
         return [];
     }
@@ -351,7 +368,7 @@ export function formatNewUsersData(data) {
             <FormattedDate
                 value={user.create_at}
                 day='numeric'
-                month='long'
+                month={getMonthLong(locale)}
                 year='numeric'
                 hour12={true}
                 hour='2-digit'

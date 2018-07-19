@@ -4,8 +4,9 @@
 import React from 'react';
 import {shallow} from 'enzyme';
 
-import CreateComment from 'components/create_comment/create_comment.jsx';
 import Constants from 'utils/constants.jsx';
+
+import CreateComment from 'components/create_comment/create_comment.jsx';
 
 jest.mock('stores/post_store.jsx', () => ({
     clearCommentDraftUploads: jest.fn(),
@@ -40,6 +41,7 @@ describe('components/CreateComment', () => {
         resetCreatePostRequest: jest.fn(),
         readOnlyChannel: false,
         enableEmojiPicker: true,
+        enableGifPicker: true,
         enableConfirmNotificationsToChannel: true,
         maxPostSize: Constants.DEFAULT_CHARACTER_LIMIT,
     };
@@ -582,5 +584,16 @@ describe('components/CreateComment', () => {
         );
 
         expect(wrapper).toMatchSnapshot();
+    });
+
+    it('check for handleFileUploadChange callback for focus', () => {
+        const wrapper = shallow(
+            <CreateComment {...baseProps}/>
+        );
+        const instance = wrapper.instance();
+        instance.focusTextbox = jest.fn();
+
+        instance.handleFileUploadChange();
+        expect(instance.focusTextbox).toHaveBeenCalledTimes(1);
     });
 });

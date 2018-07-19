@@ -6,6 +6,7 @@ import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
 import ComplianceReports from 'components/admin_console/compliance_reports';
+import {localizeMessage} from 'utils/utils.jsx';
 import AuditTable from 'components/audit_table.jsx';
 import LoadingScreen from 'components/loading_screen.jsx';
 
@@ -71,7 +72,7 @@ export default class Audits extends React.PureComponent {
         }
 
         return (
-            <div>
+            <div className='wrapper--admin'>
                 <ComplianceReports/>
 
                 <div className='panel audit-panel'>
@@ -85,7 +86,10 @@ export default class Audits extends React.PureComponent {
                             className='btn btn-link pull-right'
                             onClick={this.reload}
                         >
-                            <i className='fa fa-refresh'/>
+                            <i
+                                className='fa fa-refresh'
+                                title={localizeMessage('generic_icons.reload', 'Reload Icon')}
+                            />
                             <FormattedMessage
                                 id='admin.audits.reload'
                                 defaultMessage='Reload User Activity Logs'

@@ -31,7 +31,6 @@ import SystemPermissionGate from 'components/permissions_gates/system_permission
 import MenuTutorialTip from 'components/tutorial/menu_tutorial_tip';
 
 export default class SidebarRightMenu extends React.Component {
-
     static propTypes = {
         teamId: PropTypes.string,
         isOpen: PropTypes.bool.isRequired,
@@ -304,7 +303,6 @@ export default class SidebarRightMenu extends React.Component {
         );
 
         const pluginItems = this.props.pluginMenuItems.map((item) => {
-            const MenuIcon = item.mobile_icon;
             return (
                 <li key={item.id + '_pluginrightmenuitem'}>
                     <a
@@ -312,7 +310,7 @@ export default class SidebarRightMenu extends React.Component {
                         href='#'
                         onClick={item.action}
                     >
-                        {MenuIcon ? <MenuIcon/> : <i className='icon fa fa-plus-square'/>}
+                        <span className='icon'>{item.mobileIcon}</span>
                         {item.text}
                     </a>
                 </li>

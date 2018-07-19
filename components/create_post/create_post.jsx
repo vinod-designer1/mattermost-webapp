@@ -31,8 +31,6 @@ const KeyCodes = Constants.KeyCodes;
 export default class CreatePost extends React.Component {
     static propTypes = {
 
-        isRhsOpen: PropTypes.bool.isRequired,
-
         /**
         *  ref passed from channelView for EmojiPickerOverlay
         */
@@ -121,6 +119,11 @@ export default class CreatePost extends React.Component {
          * Whether to show the emoji picker.
          */
         enableEmojiPicker: PropTypes.bool.isRequired,
+
+        /**
+         * Whether to show the gif picker.
+         */
+        enableGifPicker: PropTypes.bool.isRequired,
 
         /**
          * Whether to check with the user before notifying the whole channel.
@@ -213,7 +216,7 @@ export default class CreatePost extends React.Component {
         this.lastBlurAt = 0;
     }
 
-    componentWillMount() {
+    UNSAFE_componentWillMount() { // eslint-disable-line camelcase
         const enableSendButton = this.handleEnableSendButton(this.state.message, this.props.draft.fileInfos);
         this.props.actions.clearDraftUploads(StoragePrefixes.DRAFT, (key, value) => {
             if (value) {
@@ -233,7 +236,7 @@ export default class CreatePost extends React.Component {
         document.addEventListener('keydown', this.showShortcuts);
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (nextProps.currentChannel.id !== this.props.currentChannel.id) {
             const draft = nextProps.draft;
 
@@ -497,7 +500,7 @@ export default class CreatePost extends React.Component {
     }
 
     handleFileUploadChange = () => {
-        this.focusTextbox(true);
+        this.focusTextbox();
     }
 
     handleUploadStart = (clientIds, channelId) => {
@@ -681,9 +684,9 @@ export default class CreatePost extends React.Component {
     replyToLastPost = (e) => {
         e.preventDefault();
         const latestReplyablePostId = this.props.latestReplyablePostId;
-        const isRhsOpen = this.props.isRhsOpen;
-        if (isRhsOpen) {
-            document.getElementById('reply_textbox').focus();
+        const replyBox = document.getElementById('reply_textbox');
+        if (replyBox) {
+            replyBox.focus();
         }
         if (latestReplyablePostId) {
             this.props.actions.selectPostFromRightHandSideSearchByPostId(latestReplyablePostId);
@@ -735,6 +738,17 @@ export default class CreatePost extends React.Component {
 
         this.setState({showEmojiPicker: false});
 
+        this.focusTextbox();
+    }
+
+    handleGifClick = (gif) => {
+        if (this.state.message === '') {
+            this.setState({message: gif});
+        } else {
+            const newMessage = (/\s+$/.test(this.state.message)) ? this.state.message + gif : this.state.message + ' ' + gif;
+            this.setState({message: newMessage});
+        }
+        this.setState({showEmojiPicker: false});
         this.focusTextbox();
     }
 
@@ -878,6 +892,8 @@ export default class CreatePost extends React.Component {
                         target={this.getCreatePostControls}
                         onHide={this.hideEmojiPicker}
                         onEmojiClick={this.handleEmojiClick}
+                        onGifClick={this.handleGifClick}
+                        enableGifPicker={this.props.enableGifPicker}
                         rightOffset={15}
                         topOffset={-7}
                     />
@@ -934,7 +950,10 @@ export default class CreatePost extends React.Component {
                                     className={sendButtonClass}
                                     onClick={this.handleSubmit}
                                 >
-                                    <i className='fa fa-paper-plane'/>
+                                    <i
+                                        className='fa fa-paper-plane'
+                                        title={Utils.localizeMessage('create_post.icon', 'Send Post Icon')}
+                                    />
                                 </a>
                             </span>
                         </div>

@@ -3,12 +3,12 @@
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {isChannelMuted} from 'mattermost-redux/utils/channel_utils';
+import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
 import ChannelStore from 'stores/channel_store.jsx';
 import NotificationStore from 'stores/notification_store.jsx';
 import UserStore from 'stores/user_store.jsx';
 import Constants, {NotificationLevels, UserStatuses} from 'utils/constants.jsx';
-import {isSystemMessage} from 'utils/post_utils.jsx';
 import {isMacApp, isMobileApp, isWindowsApp} from 'utils/user_agent.jsx';
 import * as Utils from 'utils/utils.jsx';
 import store from 'stores/redux_store.jsx';
@@ -113,11 +113,6 @@ export function sendDesktopNotification(post, msgProps) {
         body = username + Utils.localizeMessage('channel_loader.wrote', ' wrote: ') + notifyText;
     }
 
-    let duration = Constants.DEFAULT_NOTIFICATION_DURATION;
-    if (user.notify_props && user.notify_props.desktop_duration) {
-        duration = parseInt(user.notify_props.desktop_duration, 10) * 1000;
-    }
-
     //Play a sound if explicitly set in settings
     const sound = !user.notify_props || user.notify_props.desktop_sound === 'true';
 
@@ -128,7 +123,7 @@ export function sendDesktopNotification(post, msgProps) {
     const notify = (activeChannel && activeChannel.id !== channelId) || !NotificationStore.getFocus();
 
     if (notify) {
-        Utils.notifyMe(title, body, channel, teamId, duration, !sound);
+        Utils.notifyMe(title, body, channel, teamId, !sound);
 
         //Don't add extra sounds on native desktop clients
         if (sound && !isWindowsApp() && !isMacApp() && !isMobileApp()) {

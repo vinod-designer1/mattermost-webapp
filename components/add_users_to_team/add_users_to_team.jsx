@@ -53,7 +53,7 @@ export default class AddUsersToTeam extends React.Component {
         });
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (this.props.searchTerm !== nextProps.searchTerm) {
             clearTimeout(this.searchTimeoutId);
 
@@ -181,7 +181,10 @@ export default class AddUsersToTeam extends React.Component {
                 </div>
                 <div className='more-modal__actions'>
                     <div className='more-modal__actions--round'>
-                        <i className='fa fa-plus'/>
+                        <i
+                            className='fa fa-plus'
+                            title={localizeMessage('generic_icons.add', 'Add Icon')}
+                        />
                     </div>
                 </div>
             </div>

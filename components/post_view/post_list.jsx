@@ -6,12 +6,17 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import {FormattedMessage} from 'react-intl';
 
+import {debounce} from 'mattermost-redux/actions/helpers';
+import {isUserActivityPost} from 'mattermost-redux/utils/post_utils';
+
 import Constants, {PostTypes} from 'utils/constants.jsx';
 import DelayedAction from 'utils/delayed_action.jsx';
 import EventTypes from 'utils/event_types.jsx';
 import GlobalEventEmitter from 'utils/global_event_emitter.jsx';
 import * as UserAgent from 'utils/user_agent.jsx';
 import * as Utils from 'utils/utils.jsx';
+import {isFromWebhook} from 'utils/post_utils.jsx';
+
 import LoadingScreen from 'components/loading_screen.jsx';
 import DateSeparator from 'components/post_view/date_separator.jsx';
 
@@ -23,6 +28,7 @@ import CreateChannelIntroMessage from './channel_intro_message';
 
 const CLOSE_TO_BOTTOM_SCROLL_MARGIN = 10;
 const POSTS_PER_PAGE = Constants.POST_CHUNK_SIZE / 2;
+const MAX_EXTRA_PAGES_LOADED = 10;
 
 export default class PostList extends React.PureComponent {
     static propTypes = {
@@ -111,6 +117,8 @@ export default class PostList extends React.PureComponent {
         this.previousClientHeight = 0;
         this.atBottom = false;
 
+        this.extraPagesLoaded = 0;
+
         this.state = {
             atEnd: false,
             unViewedCount: 0,
@@ -135,7 +143,7 @@ export default class PostList extends React.PureComponent {
         window.removeEventListener('resize', this.handleWindowResize);
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         // Focusing on a new post so load posts around it
         if (nextProps.focusedPostId && this.props.focusedPostId !== nextProps.focusedPostId) {
             this.hasScrolledToFocusedPost = false;
@@ -155,6 +163,9 @@ export default class PostList extends React.PureComponent {
                 this.hasScrolledToFocusedPost = false;
                 this.hasScrolledToNewMessageSeparator = false;
                 this.atBottom = false;
+
+                this.extraPagesLoaded = 0;
+
                 this.setState({atEnd: false, lastViewed: nextProps.lastViewedAt, isDoingInitialLoad: !nextProps.posts, unViewedCount: 0});
 
                 if (nextChannel.id) {
@@ -164,7 +175,7 @@ export default class PostList extends React.PureComponent {
         }
     }
 
-    componentWillUpdate() {
+    UNSAFE_componentWillUpdate() { // eslint-disable-line camelcase
         if (this.refs.postlist) {
             this.previousScrollTop = this.refs.postlist.scrollTop;
             this.previousScrollHeight = this.refs.postlist.scrollHeight;
@@ -173,6 +184,8 @@ export default class PostList extends React.PureComponent {
     }
 
     componentDidUpdate(prevProps, prevState) {
+        this.loadPostsToFillScreenIfNecessary();
+
         // Do not update scrolling unless posts, visibility or intro message change
         if (this.props.posts === prevProps.posts && this.props.postVisibility === prevProps.postVisibility && this.state.atEnd === prevState.atEnd) {
             return;
@@ -251,6 +264,40 @@ export default class PostList extends React.PureComponent {
         }
     }
 
+    loadPostsToFillScreenIfNecessary = () => {
+        if (this.props.focusedPostId) {
+            return;
+        }
+
+        if (this.state.isDoingInitialLoad) {
+            // Should already be loading posts
+            return;
+        }
+
+        if (this.state.atEnd || !this.refs.postListContent || !this.refs.postlist) {
+            // No posts to load
+            return;
+        }
+
+        if (this.refs.postListContent.scrollHeight >= this.refs.postlist.clientHeight) {
+            // Screen is full
+            return;
+        }
+
+        if (this.extraPagesLoaded > MAX_EXTRA_PAGES_LOADED) {
+            // Prevent this from loading a lot of pages in a channel with only hidden messages
+            return;
+        }
+
+        this.doLoadPostsToFillScreen();
+    };
+
+    doLoadPostsToFillScreen = debounce(() => {
+        this.extraPagesLoaded += 1;
+
+        this.loadMorePosts();
+    }, 100);
+
     // Scroll to new message indicator or bottom on first load. Returns true
     // if we just scrolled for the initial load.
     initialScroll = () => {
@@ -267,16 +314,15 @@ export default class PostList extends React.PureComponent {
         }
 
         const messageSeparator = this.refs.newMessageSeparator;
-        if (messageSeparator) {
-            // Scroll to new message indicator since we have unread posts
+
+        // Scroll to new message indicator since we have unread posts and we can't show every new post in the screen
+        if (messageSeparator && (postList.scrollHeight - messageSeparator.offsetTop) > postList.clientHeight) {
             messageSeparator.scrollIntoView();
-            if (!this.checkBottom()) {
-                this.setUnreadsBelow(posts, this.props.currentUserId);
-            }
+            this.setUnreadsBelow(posts, this.props.currentUserId);
             return true;
         }
 
-        // Scroll to bottom since we don't have unread posts
+        // Scroll to bottom since we don't have unread posts or we can show every new post in the screen
         postList.scrollTop = postList.scrollHeight;
         this.atBottom = true;
         return true;
@@ -365,10 +411,10 @@ export default class PostList extends React.PureComponent {
             this.hasScrolledToNewMessageSeparator = true;
         }
 
-        this.setState({isDoingInitialLoad: false});
-        if (posts && posts.order.length < POSTS_PER_PAGE) {
-            this.setState({atEnd: true});
-        }
+        this.setState({
+            isDoingInitialLoad: false,
+            atEnd: Boolean(posts && posts.order.length < POSTS_PER_PAGE),
+        });
     }
 
     loadMorePosts = (e) => {
@@ -467,7 +513,8 @@ export default class PostList extends React.PureComponent {
 
             if (
                 post == null ||
-                post.type === PostTypes.EPHEMERAL_ADD_TO_CHANNEL
+                post.type === PostTypes.EPHEMERAL_ADD_TO_CHANNEL ||
+                isUserActivityPost(post.type)
             ) {
                 continue;
             }
@@ -492,7 +539,8 @@ export default class PostList extends React.PureComponent {
                 );
             }
 
-            if (post.user_id !== currentUserId &&
+            const isNotCurrentUser = post.user_id !== currentUserId || isFromWebhook(post);
+            if (isNotCurrentUser &&
                     lastViewed !== 0 &&
                     post.create_at > lastViewed &&
                     !Utils.isPostEphemeral(post) &&
@@ -618,7 +666,7 @@ export default class PostList extends React.PureComponent {
                     <div className='post-list__table'>
                         <div
                             id='postListContent'
-                            ref='postlistcontent'
+                            ref='postListContent'
                             className='post-list__content'
                         >
                             {topRow}

@@ -9,6 +9,7 @@ import * as Utils from 'utils/utils.jsx';
 import {StoragePrefixes} from 'utils/constants.jsx';
 import YoutubeVideo from 'components/youtube_video';
 import ViewImageModal from 'components/view_image';
+import Constants from 'utils/constants';
 import * as PostUtils from 'utils/post_utils.jsx';
 
 import PostAttachmentList from '../post_attachment_list.jsx';
@@ -52,6 +53,11 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
          * If an image proxy is enabled.
          */
         hasImageProxy: PropTypes.bool.isRequired,
+
+        /**
+         * Options specific to text formatting
+         */
+        options: PropTypes.object,
     }
 
     static defaultProps = {
@@ -81,7 +87,7 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
         this.preCheckImageLink();
     }
 
-    componentWillReceiveProps(nextProps) {
+    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
         if (nextProps.post.message !== this.props.post.message) {
             this.setState({
                 link: Utils.extractFirstLink(nextProps.post.message),
@@ -108,6 +114,7 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
                 attachments={attachments}
                 postId={this.props.post.id}
                 key={this.props.post.id}
+                options={this.props.options}
             />
         );
     }
@@ -131,10 +138,17 @@ export default class PostBodyAdditionalContent extends React.PureComponent {
     }
 
     isLinkImage(link) {
-        const regex = /.+\/(.+\.(?:jpg|gif|bmp|png|jpeg))(?:\?.*)?$/i;
-        const match = link.match(regex);
-        if (match && match[1]) {
-            return true;
+        let linkWithoutQuery = link.toLowerCase();
+        if (link.indexOf('?') !== -1) {
+            linkWithoutQuery = linkWithoutQuery.split('?')[0];
+        }
+
+        for (let i = 0; i < Constants.IMAGE_TYPES.length; i++) {
+            const imageType = Constants.IMAGE_TYPES[i];
+
+            if (linkWithoutQuery.endsWith('.' + imageType) || linkWithoutQuery.endsWith('=' + imageType)) {
+                return true;
+            }
         }
 
         return false;

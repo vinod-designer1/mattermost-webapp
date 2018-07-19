@@ -64,12 +64,13 @@ export default class ColorSetting extends React.PureComponent {
     togglePicker = () => {
         if (this.props.disabled) {
             this.setState({showPicker: false});
+        } else {
+            this.setState({showPicker: !this.state.showPicker});
         }
-        this.setState({showPicker: !this.state.showPicker});
     }
 
     closePicker = (e) => {
-        if (!e.target.closest('.picker-' + this.props.id)) {
+        if (!e.target.closest('.' + this.getPickerClass())) {
             this.setState({showPicker: false});
         }
     }
@@ -78,11 +79,15 @@ export default class ColorSetting extends React.PureComponent {
         this.props.onChange(this.props.id, e.target.value);
     }
 
+    getPickerClass = () => {
+        return this.props.id ? 'picker-' + this.props.id.replace('.', '-') : '';
+    }
+
     render() {
         let picker;
         if (this.state.showPicker) {
             picker = (
-                <div className={'color-picker__popover picker-' + this.props.id}>
+                <div className={'color-picker__popover ' + this.getPickerClass()}>
                     <ChromePicker
                         color={this.props.value}
                         onChange={this.handleChange}
@@ -106,7 +111,7 @@ export default class ColorSetting extends React.PureComponent {
                         disabled={this.props.disabled}
                     />
                     <span
-                        className={'input-group-addon picker-' + this.props.id}
+                        className={'input-group-addon ' + this.getPickerClass()}
                         onClick={this.togglePicker}
                     >
                         <i style={{backgroundColor: this.props.value}}/>
