@@ -7,7 +7,9 @@ import {Modal} from 'react-bootstrap';
 import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
 
 import {trackEvent} from 'actions/diagnostics_actions.jsx';
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
+
+import FormattedMarkdownMessage from 'components/formatted_markdown_message.jsx';
 
 export default class ConvertChannelModal extends React.PureComponent {
     static propTypes = {
@@ -57,12 +59,18 @@ export default class ConvertChannelModal extends React.PureComponent {
 
         return (
             <Modal
+                dialogClassName='a11y__modal'
                 show={this.state.show}
                 onHide={this.onHide}
                 onExited={onHide}
+                role='dialog'
+                aria-labelledby='convertChannelModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <h4 className='modal-title'>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='convertChannelModalLabel'
+                    >
                         <FormattedMessage
                             id='convert_channel.title'
                             defaultMessage='Convert {display_name} to a private channel?'
@@ -70,13 +78,13 @@ export default class ConvertChannelModal extends React.PureComponent {
                                 display_name: channelDisplayName,
                             }}
                         />
-                    </h4>
+                    </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <p>
-                        <FormattedHTMLMessage
+                        <FormattedMarkdownMessage
                             id='convert_channel.question1'
-                            defaultMessage='When you convert <strong>{display_name}</strong> to a private channel, history and membership are preserved. Publicly shared files remain accessible to anyone with the link. Membership in a private channel is by invitation only.'
+                            defaultMessage='When you convert **{display_name}** to a private channel, history and membership are preserved. Publicly shared files remain accessible to anyone with the link. Membership in a private channel is by invitation only.'
                             values={{
                                 display_name: channelDisplayName,
                             }}
@@ -89,9 +97,9 @@ export default class ConvertChannelModal extends React.PureComponent {
                         />
                     </p>
                     <p>
-                        <FormattedHTMLMessage
+                        <FormattedMarkdownMessage
                             id='convert_channel.question3'
-                            defaultMessage='Are you sure you want to convert <strong>{display_name}</strong> to a private channel?'
+                            defaultMessage='Are you sure you want to convert **{display_name}** to a private channel?'
                             values={{
                                 display_name: channelDisplayName,
                             }}
@@ -101,9 +109,8 @@ export default class ConvertChannelModal extends React.PureComponent {
                 <Modal.Footer>
                     <button
                         type='button'
-                        className='btn btn-default'
+                        className='btn btn-link'
                         onClick={this.onHide}
-                        tabIndex='2'
                     >
                         <FormattedMessage
                             id='convert_channel.cancel'
@@ -116,7 +123,6 @@ export default class ConvertChannelModal extends React.PureComponent {
                         data-dismiss='modal'
                         onClick={this.handleConvert}
                         autoFocus={true}
-                        tabIndex='1'
                     >
                         <FormattedMessage
                             id='convert_channel.confirm'

@@ -4,14 +4,15 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {Posts} from 'mattermost-redux/constants';
+import {isMeMessage as checkIsMeMessage} from 'mattermost-redux/utils/post_utils';
 
-import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
-import {ActionTypes} from 'utils/constants.jsx';
 import * as PostUtils from 'utils/post_utils.jsx';
-import * as Utils from 'utils/utils.jsx';
+import {A11yCustomEventTypes} from 'utils/constants';
+import {intlShape} from 'utils/react_intl';
 import PostProfilePicture from 'components/post_profile_picture';
 import PostBody from 'components/post_view/post_body';
 import PostHeader from 'components/post_view/post_header';
+import PostContext from 'components/post_view/post_context';
 
 export default class Post extends React.PureComponent {
     static propTypes = {
@@ -22,19 +23,14 @@ export default class Post extends React.PureComponent {
         post: PropTypes.object.isRequired,
 
         /**
-         * The user who created the post
+         * The function to create an aria-label
          */
-        user: PropTypes.object,
+        createAriaLabel: PropTypes.func.isRequired,
 
         /**
-         * The status of the poster
+         * The logged in user ID
          */
-        status: PropTypes.string,
-
-        /**
-         * The logged in user
-         */
-        currentUser: PropTypes.object.isRequired,
+        currentUserId: PropTypes.string.isRequired,
 
         /**
          * Set to center the post
@@ -54,7 +50,7 @@ export default class Post extends React.PureComponent {
         /**
          * Set to highlight the background of the post
          */
-        highlight: PropTypes.bool,
+        shouldHighlight: PropTypes.bool,
 
         /**
          * Set to render this post as if it was attached to the previous post
@@ -66,6 +62,11 @@ export default class Post extends React.PureComponent {
          */
         previousPostIsComment: PropTypes.bool,
 
+        /*
+         * Function called when the post options dropdown is opened
+         */
+        togglePostMenu: PropTypes.func,
+
         /**
          * Set to render this comment as a mention
          */
@@ -76,21 +77,16 @@ export default class Post extends React.PureComponent {
          */
         replyCount: PropTypes.number,
 
-        /**
-         * Set to mark the poster as in a webrtc call
-         */
-        isBusy: PropTypes.bool,
-
-        /**
-         * The post count used for selenium tests
-         */
-        lastPostCount: PropTypes.number,
-
-        /**
-         * Function to get the post list HTML element
-         */
-        getPostList: PropTypes.func.isRequired,
+        actions: PropTypes.shape({
+            selectPost: PropTypes.func.isRequired,
+            selectPostCard: PropTypes.func.isRequired,
+            markPostAsUnread: PropTypes.func.isRequired,
+        }).isRequired,
     }
+
+    static contextTypes = {
+        intl: intlShape.isRequired,
+    };
 
     static defaultProps = {
         post: {},
@@ -99,15 +95,35 @@ export default class Post extends React.PureComponent {
     constructor(props) {
         super(props);
 
+        this.postRef = React.createRef();
+
         this.state = {
             dropdownOpened: false,
             hover: false,
-            sameRoot: this.hasSameRoot(props),
+            alt: false,
+            a11yActive: false,
+            currentAriaLabel: '',
+            ariaHidden: true,
         };
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        this.setState({sameRoot: this.hasSameRoot(nextProps)});
+    componentDidMount() {
+        this.postRef.current.addEventListener(A11yCustomEventTypes.ACTIVATE, this.handleA11yActivateEvent);
+        document.addEventListener('keydown', this.handleAlt);
+        document.addEventListener('keyup', this.handleAlt);
+        this.postRef.current.addEventListener(A11yCustomEventTypes.DEACTIVATE, this.handleA11yDeactivateEvent);
+    }
+    componentWillUnmount() {
+        this.postRef.current.removeEventListener(A11yCustomEventTypes.ACTIVATE, this.handleA11yActivateEvent);
+        document.removeEventListener('keydown', this.handleAlt);
+        document.removeEventListener('keyup', this.handleAlt);
+        this.postRef.current.removeEventListener(A11yCustomEventTypes.DEACTIVATE, this.handleA11yDeactivateEvent);
+    }
+
+    componentDidUpdate() {
+        if (this.state.a11yActive) {
+            this.postRef.current.dispatchEvent(new Event(A11yCustomEventTypes.UPDATE));
+        }
     }
 
     handleCommentClick = (e) => {
@@ -117,15 +133,31 @@ export default class Post extends React.PureComponent {
         if (!post) {
             return;
         }
+        this.props.actions.selectPost(post);
+    }
 
-        AppDispatcher.handleServerAction({
-            type: ActionTypes.RECEIVED_POST_SELECTED,
-            postId: Utils.getRootId(post),
-            channelId: post.channel_id,
-        });
+    handleCardClick = (post) => {
+        if (!post) {
+            return;
+        }
+        this.props.actions.selectPostCard(post);
+    }
+
+    handlePostClick = (e) => {
+        const post = this.props.post;
+        if (!post) {
+            return;
+        }
+        if (e.altKey) {
+            this.props.actions.markPostAsUnread(post);
+        }
     }
 
     handleDropdownOpened = (opened) => {
+        if (this.props.togglePostMenu) {
+            this.props.togglePostMenu(opened);
+        }
+
         this.setState({
             dropdownOpened: opened,
         });
@@ -145,26 +177,26 @@ export default class Post extends React.PureComponent {
         return false;
     }
 
-    getClassName = (post, isSystemMessage, fromWebhook, fromAutoResponder) => {
+    getClassName = (post, isSystemMessage, isMeMessage, fromWebhook, fromAutoResponder, fromBot) => {
         let className = 'post';
 
         if (post.failed || post.state === Posts.POST_DELETED) {
             className += ' post--hide-controls';
         }
 
-        if (this.props.highlight) {
+        if (this.props.shouldHighlight) {
             className += ' post--highlight';
         }
 
         let rootUser = '';
-        if (this.state.sameRoot) {
+        if (this.hasSameRoot(this.props) && !fromBot) {
             rootUser = 'same--root';
         } else {
             rootUser = 'other--root';
         }
 
         let currentUserCss = '';
-        if (this.props.currentUser.id === post.user_id && !fromWebhook && !isSystemMessage) {
+        if (this.props.currentUserId === post.user_id && !fromWebhook && !isSystemMessage) {
             currentUserCss = 'current--user';
         }
 
@@ -182,23 +214,24 @@ export default class Post extends React.PureComponent {
             rootUser = '';
         }
 
-        if (isSystemMessage) {
+        if (isSystemMessage || isMeMessage) {
             className += ' post--system';
-            sameUserClass = '';
-            currentUserCss = '';
-            postType = '';
-            rootUser = '';
+            if (isSystemMessage) {
+                currentUserCss = '';
+                postType = '';
+                rootUser = '';
+            }
         }
 
         if (fromAutoResponder) {
-            postType = 'post--comment';
+            postType = 'post--comment same--root';
         }
 
         if (this.props.compactDisplay) {
             className += ' post--compact';
         }
 
-        if (this.state.dropdownOpened) {
+        if (this.state.dropdownOpened || this.state.a11yActive) {
             className += ' post--hovered';
         }
 
@@ -206,11 +239,11 @@ export default class Post extends React.PureComponent {
             className += ' post--pinned';
         }
 
-        return className + ' ' + sameUserClass + ' ' + rootUser + ' ' + postType + ' ' + currentUserCss;
-    }
+        if (this.state.alt) {
+            className += ' cursor--pointer';
+        }
 
-    getRef = (node) => {
-        this.domNode = node;
+        return className + ' ' + sameUserClass + ' ' + rootUser + ' ' + postType + ' ' + currentUserCss;
     }
 
     setHover = () => {
@@ -221,6 +254,28 @@ export default class Post extends React.PureComponent {
         this.setState({hover: false});
     }
 
+    handleAlt = (e) => {
+        this.setState({alt: e.altKey});
+    }
+
+    handleA11yActivateEvent = () => {
+        this.setState({
+            a11yActive: true,
+            ariaHidden: false,
+        });
+    }
+
+    handleA11yDeactivateEvent = () => {
+        this.setState({
+            a11yActive: false,
+            ariaHidden: true,
+        });
+    }
+
+    handlePostFocus = () => {
+        this.setState({currentAriaLabel: this.props.createAriaLabel(this.context.intl)});
+    }
+
     render() {
         const {post} = this.props;
         if (!post.id) {
@@ -228,19 +283,19 @@ export default class Post extends React.PureComponent {
         }
 
         const isSystemMessage = PostUtils.isSystemMessage(post);
+        const isMeMessage = checkIsMeMessage(post);
         const fromAutoResponder = PostUtils.fromAutoResponder(post);
         const fromWebhook = post && post.props && post.props.from_webhook === 'true';
+        const fromBot = post && post.props && post.props.from_bot === 'true';
 
         let profilePic;
-        const hideProfilePicture = this.state.sameRoot && this.props.consecutivePostByUser && (!post.root_id && this.props.replyCount === 0);
+        const hideProfilePicture = this.hasSameRoot(this.props) && this.props.consecutivePostByUser && (!post.root_id && this.props.replyCount === 0) && !fromBot;
         if (!hideProfilePicture) {
             profilePic = (
                 <PostProfilePicture
                     compactDisplay={this.props.compactDisplay}
-                    isBusy={this.props.isBusy}
                     post={post}
-                    status={this.props.status}
-                    user={this.props.user}
+                    userId={post.user_id}
                 />
             );
 
@@ -259,45 +314,55 @@ export default class Post extends React.PureComponent {
         }
 
         return (
-            <div
-                ref={this.getRef}
-                id={'post_' + post.id}
-                className={this.getClassName(post, isSystemMessage, fromWebhook, fromAutoResponder)}
-                onMouseOver={this.setHover}
-                onMouseLeave={this.unsetHover}
-            >
-                <div className={'post__content ' + centerClass}>
-                    <div className='post__img'>
-                        {profilePic}
-                    </div>
-                    <div>
-                        <PostHeader
-                            post={post}
-                            handleCommentClick={this.handleCommentClick}
-                            handleDropdownOpened={this.handleDropdownOpened}
-                            user={this.props.user}
-                            currentUser={this.props.currentUser}
-                            compactDisplay={this.props.compactDisplay}
-                            status={this.props.status}
-                            isBusy={this.props.isBusy}
-                            lastPostCount={this.props.lastPostCount}
-                            isFirstReply={this.props.isFirstReply}
-                            replyCount={this.props.replyCount}
-                            showTimeWithoutHover={!hideProfilePicture}
-                            getPostList={this.props.getPostList}
-                            hover={this.state.hover}
-                        />
-                        <PostBody
-                            post={post}
-                            handleCommentClick={this.handleCommentClick}
-                            compactDisplay={this.props.compactDisplay}
-                            lastPostCount={this.props.lastPostCount}
-                            isCommentMention={this.props.isCommentMention}
-                            isFirstReply={this.props.isFirstReply}
-                        />
+            <PostContext.Provider value={{handlePopupOpened: this.handleDropdownOpened}}>
+                <div
+                    ref={this.postRef}
+                    id={'post_' + post.id}
+                    data-testid='postView'
+                    role='listitem'
+                    className={`a11y__section ${this.getClassName(post, isSystemMessage, isMeMessage, fromWebhook, fromAutoResponder, fromBot)}`}
+                    tabIndex='0'
+                    onFocus={this.handlePostFocus}
+                    onBlur={this.removeFocus}
+                    onMouseOver={this.setHover}
+                    onMouseLeave={this.unsetHover}
+                    onTouchStart={this.setHover}
+                    onClick={this.handlePostClick}
+                    aria-label={this.state.currentAriaLabel}
+                    aria-atomic={true}
+                >
+                    <div
+                        role='application'
+                        data-testid='postContent'
+                        className={'post__content ' + centerClass}
+                        aria-hidden={this.state.ariaHidden}
+                    >
+                        <div className='post__img'>
+                            {profilePic}
+                        </div>
+                        <div>
+                            <PostHeader
+                                post={post}
+                                handleCommentClick={this.handleCommentClick}
+                                handleCardClick={this.handleCardClick}
+                                handleDropdownOpened={this.handleDropdownOpened}
+                                compactDisplay={this.props.compactDisplay}
+                                isFirstReply={this.props.isFirstReply}
+                                replyCount={this.props.replyCount}
+                                showTimeWithoutHover={!hideProfilePicture}
+                                hover={this.state.hover || this.state.a11yActive}
+                            />
+                            <PostBody
+                                post={post}
+                                handleCommentClick={this.handleCommentClick}
+                                compactDisplay={this.props.compactDisplay}
+                                isCommentMention={this.props.isCommentMention}
+                                isFirstReply={this.props.isFirstReply}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
+            </PostContext.Provider>
         );
     }
 }

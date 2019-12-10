@@ -3,15 +3,18 @@
 import React from 'react';
 import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
 
-import {JobTypes} from 'utils/constants.jsx';
-import * as Utils from 'utils/utils.jsx';
+import FormattedMarkdownMessage from 'components/formatted_markdown_message.jsx';
 
-import AdminSettings from './admin_settings.jsx';
-import BooleanSetting from './boolean_setting.jsx';
+import {JobTypes} from 'utils/constants';
+import * as Utils from 'utils/utils.jsx';
+import {getSiteURL} from 'utils/url';
+
+import AdminSettings from './admin_settings';
+import BooleanSetting from './boolean_setting';
 import DropdownSetting from './dropdown_setting.jsx';
 import JobsTable from './jobs';
 import SettingsGroup from './settings_group.jsx';
-import TextSetting from './text_setting.jsx';
+import TextSetting from './text_setting';
 import RadioSetting from './radio_setting';
 
 const exportFormats = {
@@ -21,14 +24,7 @@ const exportFormats = {
 };
 
 export default class MessageExportSettings extends AdminSettings {
-    constructor(props) {
-        super(props);
-
-        this.getConfigFromState = this.getConfigFromState.bind(this);
-        this.renderSettings = this.renderSettings.bind(this);
-    }
-
-    getConfigFromState(config) {
+    getConfigFromState = (config) => {
         config.MessageExportSettings.EnableExport = this.state.enableComplianceExport;
         config.MessageExportSettings.ExportFormat = this.state.exportFormat;
         config.MessageExportSettings.DailyRunTime = this.state.exportJobStartTime;
@@ -84,10 +80,10 @@ export default class MessageExportSettings extends AdminSettings {
         );
     }
 
-    renderSettings() {
+    renderSettings = () => {
         const exportFormatOptions = [
-            {value: exportFormats.EXPORT_FORMAT_CSV, text: Utils.localizeMessage('admin.complianceExport.exportFormat.csv', 'CSV')},
             {value: exportFormats.EXPORT_FORMAT_ACTIANCE, text: Utils.localizeMessage('admin.complianceExport.exportFormat.actiance', 'Actiance XML')},
+            {value: exportFormats.EXPORT_FORMAT_CSV, text: Utils.localizeMessage('admin.complianceExport.exportFormat.csv', 'CSV')},
             {value: exportFormats.EXPORT_FORMAT_GLOBALRELAY, text: Utils.localizeMessage('admin.complianceExport.exportFormat.globalrelay', 'GlobalRelay EML')},
         ];
 
@@ -200,23 +196,15 @@ export default class MessageExportSettings extends AdminSettings {
         }
 
         const dropdownHelpText = (
-            <FormattedHTMLMessage
+            <FormattedMarkdownMessage
                 id='admin.complianceExport.exportFormat.description'
-                defaultMessage='Format of the compliance export. Corresponds to the system that you want to import the data into.<br><br>For Actiance XML, compliance export files are written to the "exports" subdirectory of the configured <a href="/admin_console/files/storage">Local Storage Directory</a>. For Global Relay EML, they are emailed to the configured email address.'
+                defaultMessage='Format of the compliance export. Corresponds to the system that you want to import the data into.\n \nFor Actiance XML, compliance export files are written to the \"exports\" subdirectory of the configured [Local Storage Directory]({siteURL}/admin_console/environment/file_storage). For Global Relay EML, they are emailed to the configured email address.'
+                values={{siteURL: getSiteURL()}}
             />
         );
 
         return (
             <SettingsGroup>
-                <div className='banner'>
-                    <div className='banner__content'>
-                        <FormattedHTMLMessage
-                            id='admin.complianceExport.description'
-                            defaultMessage='This feature supports compliance exports to the Actiance XML and GlobalRelay EML formats, and is currently in beta. Support for the Mattermost CSV format is scheduled for a future release, and will replace the existing <a href=\"/admin_console/general/compliance\">Compliance</a> feature.'
-                        />
-                    </div>
-                </div>
-
                 <BooleanSetting
                     id='enableComplianceExport'
                     label={
@@ -226,9 +214,9 @@ export default class MessageExportSettings extends AdminSettings {
                         />
                     }
                     helpText={
-                        <FormattedHTMLMessage
+                        <FormattedMarkdownMessage
                             id='admin.service.complianceExportDesc'
-                            defaultMessage='When true, Mattermost will export all messages that were posted in the last 24 hours. The export task is scheduled to run once per day. See <a href=\"https://about.mattermost.com/default-compliance-export-documentation\" target=\"_blank\">the documentation</a> to learn more.'
+                            defaultMessage='When true, Mattermost will export all messages that were posted in the last 24 hours. The export task is scheduled to run once per day. See [the documentation](!https://about.mattermost.com/default-compliance-export-documentation) to learn more.'
                         />
                     }
                     value={this.state.enableComplianceExport}

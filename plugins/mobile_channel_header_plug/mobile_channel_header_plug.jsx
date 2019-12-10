@@ -10,7 +10,7 @@ export default class MobileChannelHeaderPlug extends React.PureComponent {
         /*
          * Components or actions to add as channel header buttons
          */
-        components: PropTypes.array.isRequired,
+        components: PropTypes.array,
 
         /*
          * Set to true if the plug is in the dropdown
@@ -26,36 +26,47 @@ export default class MobileChannelHeaderPlug extends React.PureComponent {
         theme: PropTypes.object.isRequired,
     }
 
-    createButton(plug) {
-        return (
-            <div
-                className='navbar-toggle navbar-right__icon pull-right'
-                onClick={plug.action}
-            >
-                <span className='icon navbar-plugin-button'>
-                    {plug.icon}
-                </span>
-            </div>
-        );
-    }
+    createButton = (plug) => {
+        const onClick = () => this.fireAction(plug);
 
-    createList(plugs) {
-        return plugs.map((plug) => {
+        if (this.props.isDropdown) {
             return (
                 <li
                     key={'mobileChannelHeaderItem' + plug.id}
                     role='presentation'
+                    className='MenuItem'
                 >
                     <a
                         role='menuitem'
                         href='#'
-                        onClick={plug.action}
+                        onClick={onClick}
                     >
                         {plug.dropdownText}
                     </a>
                 </li>
             );
-        });
+        }
+
+        return (
+            <li className='flex-parent--center'>
+                <button
+                    className='navbar-toggle navbar-right__icon'
+                    onClick={onClick}
+                >
+                    <span className='icon navbar-plugin-button'>
+                        {plug.icon}
+                    </span>
+                </button>
+            </li>
+        );
+    }
+
+    createList(plugs) {
+        return plugs.map(this.createButton);
+    }
+
+    fireAction(plug) {
+        return plug.action(this.props.channel, this.props.channelMember);
     }
 
     render() {

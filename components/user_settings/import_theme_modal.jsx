@@ -6,7 +6,7 @@ import {Modal} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 
 import ModalStore from 'stores/modal_store.jsx';
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 
 const ActionTypes = Constants.ActionTypes;
 
@@ -146,11 +146,17 @@ export default class ImportThemeModal extends React.Component {
         return (
             <span>
                 <Modal
+                    dialogClassName='a11y__modal'
                     show={this.state.show}
                     onHide={this.handleOnHide}
+                    role='dialog'
+                    aria-labelledby='importThemeModalLabel'
                 >
                     <Modal.Header closeButton={true}>
-                        <Modal.Title>
+                        <Modal.Title
+                            componentClass='h1'
+                            id='importThemeModalLabel'
+                        >
                             <FormattedMessage
                                 id='user.settings.import_theme.importHeader'
                                 defaultMessage='Import Slack Theme'
@@ -187,7 +193,7 @@ export default class ImportThemeModal extends React.Component {
                             <button
                                 id='cancelButton'
                                 type='button'
-                                className='btn btn-default'
+                                className='btn btn-link'
                                 onClick={this.handleOnHide}
                             >
                                 <FormattedMessage
@@ -200,7 +206,6 @@ export default class ImportThemeModal extends React.Component {
                                 onClick={this.handleSubmit}
                                 type='submit'
                                 className='btn btn-primary'
-                                tabIndex='3'
                             >
                                 <FormattedMessage
                                     id='user.settings.import_theme.submit'

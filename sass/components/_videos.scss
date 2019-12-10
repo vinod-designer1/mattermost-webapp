@@ -7,10 +7,12 @@
         max-width: 480px;
         overflow: hidden;
         position: relative;
+        height: 360px;
 
         iframe,
         video {
             display: block;
+            max-width: 100%;
         }
 
         .video-thumbnail {
@@ -82,10 +84,10 @@
     .img-div {
         @include single-transition(all, .1s, linear);
         -moz-force-broken-image-icon: 1;
-        border-radius: 5px;
+        border-radius: 4px;
         margin-bottom: 8px;
-        max-height: 500px;
-        max-width: 450px;
+        max-height: 350px;
+        max-width: 480px;
         position: relative;
 
         &:hover {
@@ -93,7 +95,7 @@
         }
 
         &.placeholder {
-            height: 500px;
+            height: 350px;
         }
 
         .sidebar--right & {
@@ -102,6 +104,13 @@
     }
 
     .video-loading {
+        height: 368px;
+    }
+
+    .video-div__placeholder {
         height: 360px;
+        display: flex;
+        align-items: center;
+        background-color: black;
     }
 }

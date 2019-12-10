@@ -5,8 +5,8 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
-import SaveButton from 'components/save_button.jsx';
-import Constants from 'utils/constants.jsx';
+import SaveButton from 'components/save_button';
+import Constants from 'utils/constants';
 import {isKeyPressed} from 'utils/utils.jsx';
 
 export default class SettingItemMax extends React.PureComponent {
@@ -22,7 +22,7 @@ export default class SettingItemMax extends React.PureComponent {
         /**
          * Array of inputs selection
          */
-        inputs: PropTypes.array,
+        inputs: PropTypes.node,
 
         /**
          * Styles for main component
@@ -101,9 +101,28 @@ export default class SettingItemMax extends React.PureComponent {
          * Avoid submitting when using SHIFT + ENTER
          */
         shiftEnter: PropTypes.bool,
+
+        /**
+         * Text of save button
+         */
+        saveButtonText: PropTypes.string,
+    }
+
+    constructor(props) {
+        super(props);
+        this.settingList = React.createRef();
     }
 
     componentDidMount() {
+        if (this.settingList.current) {
+            const focusableElements = this.settingList.current.querySelectorAll('.btn:not(.save-button):not(.btn-cancel), input.form-control, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (focusableElements.length > 0) {
+                focusableElements[0].focus();
+            } else {
+                this.settingList.current.focus();
+            }
+        }
+
         document.addEventListener('keydown', this.onKeyDown);
     }
 
@@ -115,7 +134,7 @@ export default class SettingItemMax extends React.PureComponent {
         if (this.props.shiftEnter && e.keyCode === Constants.KeyCodes.ENTER && e.shiftKey) {
             return;
         }
-        if (isKeyPressed(e, Constants.KeyCodes.ENTER) && this.props.submit) {
+        if (isKeyPressed(e, Constants.KeyCodes.ENTER) && this.props.submit && e.target.tagName !== 'SELECT' && e.target.parentElement && e.target.parentElement.className !== 'react-select__input' && !e.target.classList.contains('btn-cancel') && this.settingList.current && this.settingList.current.contains(e.target)) {
             this.handleSubmit(e);
         }
     }
@@ -171,13 +190,21 @@ export default class SettingItemMax extends React.PureComponent {
         }
 
         if (this.props.extraInfo) {
-            extraInfo = (<div className={hintClass}>{this.props.extraInfo}</div>);
+            extraInfo = (
+                <div
+                    id='extraInfo'
+                    className={hintClass}
+                >
+                    {this.props.extraInfo}
+                </div>
+            );
         }
 
         let submit = '';
         if (this.props.submit) {
             submit = (
                 <SaveButton
+                    defaultMessage={this.props.saveButtonText}
                     saving={this.props.saving}
                     disabled={this.props.saving}
                     onClick={this.handleSubmit}
@@ -197,11 +224,21 @@ export default class SettingItemMax extends React.PureComponent {
 
         let title;
         if (this.props.title) {
-            title = <li className='col-sm-12 section-title'>{this.props.title}</li>;
+            title = (
+                <li
+                    id='settingTitle'
+                    className='col-sm-12 section-title'
+                >
+                    {this.props.title}
+                </li>
+            );
         }
 
         let listContent = (
-            <li className='setting-list-item'>
+            <li
+                className='setting-list-item'
+                role='presentation'
+            >
                 {inputs}
                 {extraInfo}
             </li>
@@ -209,7 +246,7 @@ export default class SettingItemMax extends React.PureComponent {
 
         if (this.props.infoPosition === 'top') {
             listContent = (
-                <li>
+                <li role='presentation'>
                     {extraInfo}
                     {inputs}
                 </li>
@@ -234,7 +271,12 @@ export default class SettingItemMax extends React.PureComponent {
             >
                 {title}
                 <li className={widthClass}>
-                    <ul className='setting-list'>
+                    <ul
+                        tabIndex='-1'
+                        ref={this.settingList}
+                        role='presentation'
+                        className='setting-list'
+                    >
                         {listContent}
                         <li className='setting-list-item'>
                             <hr/>
@@ -244,7 +286,7 @@ export default class SettingItemMax extends React.PureComponent {
                             {submit}
                             <button
                                 id={'cancelSetting'}
-                                className='btn btn-sm cursor--pointer style--none'
+                                className='btn btn-sm btn-cancel cursor--pointer style--none'
                                 onClick={this.handleUpdateSection}
                             >
                                 {cancelButtonText}

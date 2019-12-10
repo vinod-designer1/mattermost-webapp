@@ -4,7 +4,7 @@
 import {combineReducers} from 'redux';
 import {ChannelTypes, PostTypes, UserTypes} from 'mattermost-redux/action_types';
 
-import {ActionTypes, Constants, NotificationLevels} from 'utils/constants.jsx';
+import {ActionTypes, Constants, NotificationLevels} from 'utils/constants';
 
 function postVisibility(state = {}, action) {
     switch (action.type) {
@@ -23,7 +23,7 @@ function postVisibility(state = {}, action) {
         nextState[action.channelId] = Constants.POST_CHUNK_SIZE / 2;
         return nextState;
     }
-    case PostTypes.RECEIVED_POST: {
+    case PostTypes.RECEIVED_NEW_POST: {
         if (action.data && state[action.data.channel_id]) {
             const nextState = {...state};
             nextState[action.data.channel_id] += 1;
@@ -45,6 +45,11 @@ function lastChannelViewTime(state = {}, action) {
             return nextState;
         }
         return state;
+    }
+
+    case ActionTypes.POST_UNREAD_SUCCESS: {
+        const data = action.data;
+        return {...state, [data.channelId]: data.lastViewedAt};
     }
 
     default:
@@ -96,7 +101,7 @@ function keepChannelIdAsUnread(state = null, action) {
 
         const msgCount = channel.total_msg_count - member.msg_count;
         const hadMentions = member.mention_count > 0;
-        const hadUnreads = member.notify_props.mark_unread !== NotificationLevels.MENTION && msgCount > 0;
+        const hadUnreads = member.notify_props && member.notify_props.mark_unread !== NotificationLevels.MENTION && msgCount > 0;
 
         if (hadMentions || hadUnreads) {
             return {
@@ -108,8 +113,29 @@ function keepChannelIdAsUnread(state = null, action) {
         return null;
     }
 
+    case ActionTypes.RECEIVED_FOCUSED_POST: {
+        if (state && action.channelId !== state.id) {
+            return null;
+        }
+        return state;
+    }
+
     case UserTypes.LOGOUT_SUCCESS:
         return null;
+    default:
+        return state;
+    }
+}
+
+function lastGetPosts(state = {}, action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_POSTS_FOR_CHANNEL_AT_TIME:
+        return {
+            ...state,
+            [action.channelId]: action.time,
+        };
+    case UserTypes.LOGOUT_SUCCESS:
+        return {};
     default:
         return state;
     }
@@ -122,4 +148,5 @@ export default combineReducers({
     focusedPostId,
     mobileView,
     keepChannelIdAsUnread,
+    lastGetPosts,
 });

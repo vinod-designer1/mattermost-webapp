@@ -3,22 +3,29 @@
 
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
+
 import {getTeamStats} from 'mattermost-redux/actions/teams';
-import {getProfilesNotInChannel} from 'mattermost-redux/actions/users';
+import {getProfilesNotInChannel, searchProfiles} from 'mattermost-redux/actions/users';
+import {getProfilesNotInCurrentChannel, getProfilesNotInCurrentTeam} from 'mattermost-redux/selectors/entities/users';
+
+import {addUsersToChannel} from 'actions/channel_actions';
 
 import ChannelInviteModal from './channel_invite_modal.jsx';
 
-function mapStateToProps(state, ownProps) {
+function mapStateToProps(state) {
     return {
-        ...ownProps,
+        profilesNotInCurrentChannel: getProfilesNotInCurrentChannel(state),
+        profilesNotInCurrentTeam: getProfilesNotInCurrentTeam(state),
     };
 }
 
 function mapDispatchToProps(dispatch) {
     return {
         actions: bindActionCreators({
+            addUsersToChannel,
             getProfilesNotInChannel,
             getTeamStats,
+            searchProfiles,
         }, dispatch),
     };
 }

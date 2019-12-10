@@ -1,59 +1,75 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React, {PureComponent} from 'react';
 import ReactDOM from 'react-dom';
-import {defineMessages, intlShape} from 'react-intl';
-import 'jquery-dragster/jquery.dragster.js';
+import {defineMessages, FormattedMessage} from 'react-intl';
 
-import Constants from 'utils/constants.jsx';
-import DelayedAction from 'utils/delayed_action.jsx';
+import dragster from 'utils/dragster';
+import Constants from 'utils/constants';
+import DelayedAction from 'utils/delayed_action';
+import {t} from 'utils/i18n';
 import {
     isIosChrome,
     isMobileApp,
-} from 'utils/user_agent.jsx';
+} from 'utils/user_agent';
+import {getTable} from 'utils/paste';
+import {intlShape} from 'utils/react_intl';
 import {
     clearFileInput,
     cmdOrCtrlPressed,
     isKeyPressed,
     generateId,
     isFileTransfer,
+    isUriDrop,
     localizeMessage,
-    sortFilesByName,
 } from 'utils/utils.jsx';
 
-import AttachmentIcon from 'components/svg/attachment_icon';
+import MenuWrapper from 'components/widgets/menu/menu_wrapper';
+import Menu from 'components/widgets/menu/menu';
+
+import AttachmentIcon from 'components/widgets/icons/attachment_icon';
 
 const holders = defineMessages({
     limited: {
-        id: 'file_upload.limited',
+        id: t('file_upload.limited'),
         defaultMessage: 'Uploads limited to {count, number} files maximum. Please use additional posts for more files.',
     },
     filesAbove: {
-        id: 'file_upload.filesAbove',
+        id: t('file_upload.filesAbove'),
         defaultMessage: 'Files above {max}MB could not be uploaded: {filenames}',
     },
     fileAbove: {
-        id: 'file_upload.fileAbove',
+        id: t('file_upload.fileAbove'),
         defaultMessage: 'File above {max}MB could not be uploaded: {filename}',
     },
     zeroBytesFiles: {
-        id: 'file_upload.zeroBytesFiles',
+        id: t('file_upload.zeroBytesFiles'),
         defaultMessage: 'You are uploading empty files: {filenames}',
     },
     zeroBytesFile: {
-        id: 'file_upload.zeroBytesFile',
+        id: t('file_upload.zeroBytesFile'),
         defaultMessage: 'You are uploading an empty file: {filename}',
     },
     pasted: {
-        id: 'file_upload.pasted',
+        id: t('file_upload.pasted'),
         defaultMessage: 'Image Pasted at ',
+    },
+    uploadFile: {
+        id: t('file_upload.upload_files'),
+        defaultMessage: 'Upload files',
     },
 });
 
 const OVERLAY_TIMEOUT = 500;
+
+const customStyles = {
+    left: 'inherit',
+    right: 0,
+    bottom: '100%',
+    top: 'auto',
+};
 
 export default class FileUpload extends PureComponent {
     static propTypes = {
@@ -64,6 +80,11 @@ export default class FileUpload extends PureComponent {
         currentChannelId: PropTypes.string.isRequired,
 
         /**
+         * Current root post's ID
+         */
+        rootId: PropTypes.string,
+
+        /**
          * Number of files to attach
          */
         fileCount: PropTypes.number.isRequired,
@@ -72,6 +93,8 @@ export default class FileUpload extends PureComponent {
          * Function to get file upload targeted input
          */
         getTarget: PropTypes.func.isRequired,
+
+        locale: PropTypes.string.isRequired,
 
         /**
          * Function to be called when file upload input is clicked
@@ -104,11 +127,6 @@ export default class FileUpload extends PureComponent {
         postType: PropTypes.string,
 
         /**
-         * Function to be called to upload file
-         */
-        uploadFile: PropTypes.func.isRequired,
-
-        /**
          * The maximum uploaded file size.
          */
         maxFileSize: PropTypes.number,
@@ -117,17 +135,47 @@ export default class FileUpload extends PureComponent {
          * Whether or not file upload is allowed.
          */
         canUploadFiles: PropTypes.bool.isRequired,
+
+        /**
+         * Plugin file upload methods to be added
+         */
+        pluginFileUploadMethods: PropTypes.arrayOf(PropTypes.object),
+        pluginFilesWillUploadHooks: PropTypes.arrayOf(PropTypes.object),
+
+        /**
+         * Function called when superAgent fires progress event.
+         */
+        onUploadProgress: PropTypes.func.isRequired,
+        actions: PropTypes.shape({
+
+            /**
+             * Function to be called to upload file
+             */
+            uploadFile: PropTypes.func.isRequired,
+
+            /**
+             * Function to be called when file is uploaded or failed
+             */
+            handleFileUploadEnd: PropTypes.func.isRequired,
+        }).isRequired,
     };
 
     static contextTypes = {
         intl: intlShape,
     };
 
+    static defaultProps = {
+        pluginFileUploadMethods: [],
+        pluginFilesWillUploadHooks: [],
+    };
+
     constructor(props) {
         super(props);
         this.state = {
             requests: {},
+            menuOpen: false,
         };
+        this.fileInput = React.createRef();
     }
 
     componentDidMount() {
@@ -142,23 +190,15 @@ export default class FileUpload extends PureComponent {
     }
 
     componentWillUnmount() {
-        let target;
-        if (this.props.postType === 'post') {
-            target = $('.row.main');
-        } else {
-            target = $('.post-right__container');
-        }
-
         document.removeEventListener('paste', this.pasteUpload);
         document.removeEventListener('keydown', this.keyUpload);
 
-        // jquery-dragster doesn't provide a function to unregister itself so do it manually
-        target.off('dragenter dragleave dragover drop dragster:enter dragster:leave dragster:over dragster:drop');
+        this.unbindDragsterEvents();
     }
 
-    fileUploadSuccess = (data) => {
+    fileUploadSuccess = (data, channelId, currentRootId) => {
         if (data) {
-            this.props.onFileUpload(data.file_infos, data.client_ids, this.props.currentChannelId);
+            this.props.onFileUpload(data.file_infos, data.client_ids, channelId, currentRootId);
 
             const requests = Object.assign({}, this.state.requests);
             for (var j = 0; j < data.client_ids.length; j++) {
@@ -168,17 +208,41 @@ export default class FileUpload extends PureComponent {
         }
     }
 
-    fileUploadFail = (err, clientId) => {
-        this.props.onUploadError(err, clientId, this.props.currentChannelId);
+    fileUploadFail = (err, clientId, channelId, currentRootId) => {
+        this.props.onUploadError(err, clientId, channelId, currentRootId);
     }
 
-    uploadFiles = (files) => {
-        const sortedFiles = sortFilesByName(files);
+    pluginUploadFiles = (files) => {
+        // clear any existing errors
+        this.props.onUploadError(null);
+        this.uploadFiles(files);
+    }
 
+    checkPluginHooksAndUploadFiles = (files) => {
         // clear any existing errors
         this.props.onUploadError(null);
 
-        const {currentChannelId} = this.props;
+        let sortedFiles = Array.from(files).sort((a, b) => a.name.localeCompare(b.name, this.props.locale, {numeric: true}));
+
+        const willUploadHooks = this.props.pluginFilesWillUploadHooks;
+        for (const h of willUploadHooks) {
+            const result = h.hook(sortedFiles, this.pluginUploadFiles);
+
+            // Display an error message if there is one but don't reject the upload
+            if (result.message) {
+                this.props.onUploadError(result.message);
+            }
+
+            sortedFiles = result.files;
+        }
+
+        if (sortedFiles) {
+            this.uploadFiles(sortedFiles);
+        }
+    }
+
+    uploadFiles = (sortedFiles) => {
+        const {currentChannelId, rootId} = this.props;
 
         const uploadsRemaining = Constants.MAX_UPLOAD_FILES - this.props.fileCount;
         let numUploads = 0;
@@ -200,18 +264,41 @@ export default class FileUpload extends PureComponent {
             // generate a unique id that can be used by other components to refer back to this upload
             const clientId = generateId();
 
-            const request = this.props.uploadFile(
+            const request = this.props.actions.uploadFile(
                 sortedFiles[i],
                 sortedFiles[i].name,
                 currentChannelId,
+                rootId,
                 clientId,
-                (data) => this.fileUploadSuccess(data),
-                (e) => this.fileUploadFail(e, clientId)
             );
 
-            const requests = this.state.requests;
-            requests[clientId] = request;
-            this.setState({requests});
+            request.on('progress', (progressEvent) => {
+                this.props.onUploadProgress({
+                    clientId,
+                    name: sortedFiles[i].name,
+                    percent: progressEvent.percent,
+                    type: sortedFiles[i].type,
+                });
+            });
+
+            request.end((err, res) => {
+                const {error, data} = this.props.actions.handleFileUploadEnd(
+                    sortedFiles[i],
+                    sortedFiles[i].name,
+                    currentChannelId,
+                    rootId,
+                    clientId,
+                    {err, res},
+                );
+
+                if (error) {
+                    this.fileUploadFail(error, clientId, currentChannelId, rootId);
+                } else if (data) {
+                    this.fileUploadSuccess(data, currentChannelId, rootId);
+                }
+            });
+
+            this.setState({requests: {...this.state.requests, [clientId]: request}});
             clientIds.push(clientId);
 
             numUploads += 1;
@@ -248,7 +335,7 @@ export default class FileUpload extends PureComponent {
 
     handleChange = (e) => {
         if (e.target.files.length > 0) {
-            this.uploadFiles(e.target.files);
+            this.checkPluginHooksAndUploadFiles(e.target.files);
 
             clearFileInput(e.target);
         }
@@ -264,10 +351,41 @@ export default class FileUpload extends PureComponent {
 
         this.props.onUploadError(null);
 
-        var files = e.originalEvent.dataTransfer.files;
+        const items = e.dataTransfer.items || [];
+        const droppedFiles = e.dataTransfer.files;
+        const files = [];
+        Array.from(droppedFiles).forEach((file, index) => {
+            const item = items[index];
+            if (item && item.webkitGetAsEntry && (item.webkitGetAsEntry() === null || item.webkitGetAsEntry().isDirectory)) {
+                return;
+            }
+            files.push(file);
+        });
 
-        if (typeof files !== 'string' && files.length) {
-            this.uploadFiles(files);
+        const types = e.dataTransfer.types;
+        if (types) {
+            if (isUriDrop(e.dataTransfer)) {
+                return;
+            }
+
+            // For non-IE browsers
+            if (types.includes && !types.includes('Files')) {
+                return;
+            }
+
+            // For IE browsers
+            if (types.contains && !types.contains('Files')) {
+                return;
+            }
+        }
+
+        if (files.length === 0) {
+            this.props.onUploadError(localizeMessage('file_upload.drag_folder', 'Folders cannot be uploaded. Please drag all files separately.'));
+            return;
+        }
+
+        if (files.length) {
+            this.checkPluginHooksAndUploadFiles(files);
         }
 
         this.props.onFileUploadChange();
@@ -276,29 +394,26 @@ export default class FileUpload extends PureComponent {
     registerDragEvents = (containerSelector, overlaySelector) => {
         const self = this;
 
-        const overlay = $(overlaySelector);
+        const overlay = document.querySelector(overlaySelector);
 
         const dragTimeout = new DelayedAction(() => {
-            if (!overlay.hasClass('hidden')) {
-                overlay.addClass('hidden');
-            }
+            overlay.classList.add('hidden');
         });
 
         let dragsterActions = {};
         if (this.props.canUploadFiles) {
             dragsterActions = {
-                enter(dragsterEvent, e) {
-                    var files = e.originalEvent.dataTransfer;
-
-                    if (isFileTransfer(files)) {
-                        $(overlaySelector).removeClass('hidden');
+                enter(e) {
+                    var files = e.detail.dataTransfer;
+                    if (!isUriDrop(files) && isFileTransfer(files)) {
+                        overlay.classList.remove('hidden');
                     }
                 },
-                leave(dragsterEvent, e) {
-                    var files = e.originalEvent.dataTransfer;
+                leave(e) {
+                    var files = e.detail.dataTransfer;
 
-                    if (isFileTransfer(files) && !overlay.hasClass('hidden')) {
-                        overlay.addClass('hidden');
+                    if (!isUriDrop(files) && isFileTransfer(files)) {
+                        overlay.classList.add('hidden');
                     }
 
                     dragTimeout.cancel();
@@ -306,36 +421,36 @@ export default class FileUpload extends PureComponent {
                 over() {
                     dragTimeout.fireAfter(OVERLAY_TIMEOUT);
                 },
-                drop(dragsterEvent, e) {
-                    if (!overlay.hasClass('hidden')) {
-                        overlay.addClass('hidden');
-                    }
-
+                drop(e) {
+                    overlay.classList.add('hidden');
                     dragTimeout.cancel();
 
-                    self.handleDrop(e);
+                    self.handleDrop(e.detail);
                 },
             };
         } else {
             dragsterActions = {
-                drop(dragsterEvent, e) {
-                    self.handleDrop(e);
+                drop(e) {
+                    self.handleDrop(e.detail);
                 },
             };
         }
 
-        $(containerSelector).dragster(dragsterActions);
+        this.unbindDragsterEvents = dragster(containerSelector, dragsterActions);
     }
+
+    containsEventTarget = (targetElement, eventTarget) => targetElement && targetElement.contains(eventTarget);
 
     pasteUpload = (e) => {
         const {formatMessage} = this.context.intl;
 
-        if (!e.clipboardData || !e.clipboardData.items) {
+        if (!e.clipboardData || !e.clipboardData.items || getTable(e.clipboardData)) {
             return;
         }
 
-        const textarea = ReactDOM.findDOMNode(this.props.getTarget());
-        if (!textarea || !textarea.contains(e.target)) {
+        const target = this.props.getTarget();
+        const textarea = ReactDOM.findDOMNode(target);
+        if (!this.containsEventTarget(textarea, e.target)) {
             return;
         }
 
@@ -352,30 +467,19 @@ export default class FileUpload extends PureComponent {
             items.push(item);
         }
 
-        // This looks redundant, but must be done this way due to
-        // setState being an asynchronous call
         if (items && items.length > 0) {
             if (!this.props.canUploadFiles) {
                 this.props.onUploadError(localizeMessage('file_upload.disabled', 'File attachments are disabled.'));
                 return;
             }
-            const uploadsRemaining = Constants.MAX_UPLOAD_FILES - this.props.fileCount;
-            var numToUpload = Math.min(uploadsRemaining, items.length);
 
-            if (items.length > numToUpload) {
-                this.props.onUploadError(formatMessage(holders.limited, {count: Constants.MAX_UPLOAD_FILES}));
-            }
+            const files = [];
 
-            const {currentChannelId} = this.props;
-
-            for (var i = 0; i < items.length && i < numToUpload; i++) {
-                var file = items[i].getAsFile();
+            for (let i = 0; i < items.length; i++) {
+                const file = items[i].getAsFile();
                 if (!file) {
                     continue;
                 }
-
-                // generate a unique id that can be used by other components to refer back to this file upload
-                const clientId = generateId();
 
                 var d = new Date();
                 let hour = d.getHours();
@@ -395,23 +499,13 @@ export default class FileUpload extends PureComponent {
 
                 const name = formatMessage(holders.pasted) + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + ' ' + hour + '-' + minute + ext;
 
-                const request = this.props.uploadFile(
-                    file,
-                    name,
-                    currentChannelId,
-                    clientId,
-                    (data) => this.fileUploadSuccess(data),
-                    (err) => this.fileUploadFail(err, clientId)
-                );
-
-                const requests = this.state.requests;
-                requests[clientId] = request;
-                this.setState({requests});
-
-                this.props.onUploadStart([clientId], currentChannelId);
+                const newFile = new Blob([file], {type: file.type});
+                newFile.name = name;
+                files.push(newFile);
             }
 
-            if (numToUpload > 0) {
+            if (files.length > 0) {
+                this.checkPluginHooksAndUploadFiles(files);
                 this.props.onFileUploadChange();
             }
         }
@@ -428,7 +522,8 @@ export default class FileUpload extends PureComponent {
             const postTextbox = this.props.postType === 'post' && document.activeElement.id === 'post_textbox';
             const commentTextbox = this.props.postType === 'comment' && document.activeElement.id === 'reply_textbox';
             if (postTextbox || commentTextbox) {
-                $(this.refs.fileInput).focus().trigger('click');
+                this.fileInput.current.focus();
+                this.fileInput.current.click();
             }
         }
     }
@@ -446,7 +541,9 @@ export default class FileUpload extends PureComponent {
     }
 
     handleMaxUploadReached = (e) => {
-        e.preventDefault();
+        if (e) {
+            e.preventDefault();
+        }
 
         const {onUploadError} = this.props;
         const {formatMessage} = this.context.intl;
@@ -454,7 +551,28 @@ export default class FileUpload extends PureComponent {
         onUploadError(formatMessage(holders.limited, {count: Constants.MAX_UPLOAD_FILES}));
     }
 
+    toggleMenu = (open) => {
+        this.setState({menuOpen: open});
+    }
+
+    handleLocalFileUploaded = (e) => {
+        const uploadsRemaining = Constants.MAX_UPLOAD_FILES - this.props.fileCount;
+        if (uploadsRemaining > 0) {
+            if (this.props.onClick) {
+                this.props.onClick();
+            }
+        } else {
+            this.handleMaxUploadReached(e);
+        }
+        this.setState({menuOpen: false});
+    }
+
+    simulateInputClick = () => {
+        this.fileInput.current.click();
+    }
+
     render() {
+        const {formatMessage} = this.context.intl;
         let multiple = true;
         if (isMobileApp()) {
             // iOS WebViews don't upload videos properly in multiple mode
@@ -468,30 +586,115 @@ export default class FileUpload extends PureComponent {
         }
 
         const uploadsRemaining = Constants.MAX_UPLOAD_FILES - this.props.fileCount;
-        const onClick = uploadsRemaining > 0 ? this.props.onClick : this.handleMaxUploadReached;
 
-        return (
-            <span
-                ref='input'
-                className={uploadsRemaining <= 0 ? ' btn-file__disabled' : ''}
-            >
-                {this.props.canUploadFiles &&
-                <div
-                    id='fileUploadButton'
-                    className='icon icon--attachment'
-                >
-                    <AttachmentIcon/>
+        let bodyAction;
+        const ariaLabel = formatMessage({id: 'accessibility.button.attachment', defaultMessage: 'attachment'});
+
+        if (this.props.pluginFileUploadMethods.length === 0) {
+            bodyAction = (
+                <div>
+                    <button
+                        type='button'
+                        id='fileUploadButton'
+                        aria-label={ariaLabel}
+                        className='style--none post-action icon icon--attachment'
+                        onClick={this.simulateInputClick}
+                        onTouchEnd={this.simulateInputClick}
+                    >
+                        <AttachmentIcon/>
+                    </button>
                     <input
-                        ref='fileInput'
+                        id='fileUploadInput'
+                        tabIndex='-1'
+                        aria-label={formatMessage(holders.uploadFile)}
+                        ref={this.fileInput}
                         type='file'
                         onChange={this.handleChange}
-                        onClick={onClick}
+                        onClick={this.handleLocalFileUploaded}
                         multiple={multiple}
                         accept={accept}
                     />
                 </div>
-                }
-            </span>
+            );
+        } else {
+            const pluginFileUploadMethods = this.props.pluginFileUploadMethods.map((item) => {
+                return (
+                    <li
+                        key={item.pluginId + '_fileuploadpluginmenuitem'}
+                        onClick={() => {
+                            if (item.action) {
+                                item.action(this.checkPluginHooksAndUploadFiles);
+                            }
+                            this.setState({menuOpen: false});
+                        }}
+                    >
+                        <a href='#'>
+                            <span className='margin-right'>{item.icon}</span>
+                            {item.text}
+                        </a>
+                    </li>
+                );
+            });
+            bodyAction = (
+                <div>
+                    <input
+                        tabIndex='-1'
+                        aria-label={formatMessage(holders.uploadFile)}
+                        ref={this.fileInput}
+                        type='file'
+                        className='file-attachment-menu-item-input'
+                        onChange={this.handleChange}
+                        onClick={this.handleLocalFileUploaded}
+                        multiple={multiple}
+                        accept={accept}
+                    />
+                    <MenuWrapper>
+                        <button
+                            type='button'
+                            aria-label={ariaLabel}
+                            className='style--none post-action'
+                        >
+                            <div
+                                id='fileUploadButton'
+                                className='icon icon--attachment'
+                            >
+                                <AttachmentIcon/>
+                            </div>
+                        </button>
+                        <Menu
+                            openLeft={true}
+                            openUp={true}
+                            ariaLabel={formatMessage({id: 'file_upload.menuAriaLabel', defaultMessage: 'Upload type selector'})}
+                            customStyles={customStyles}
+                        >
+                            <li>
+                                <a
+                                    href='#'
+                                    onClick={this.simulateInputClick}
+                                    onTouchEnd={this.simulateInputClick}
+                                >
+                                    <span className='margin-right'><i className='fa fa-laptop'/></span>
+                                    <FormattedMessage
+                                        id='yourcomputer'
+                                        defaultMessage='Your computer'
+                                    />
+                                </a>
+                            </li>
+                            {pluginFileUploadMethods}
+                        </Menu>
+                    </MenuWrapper>
+                </div>
+            );
+        }
+
+        if (!this.props.canUploadFiles) {
+            bodyAction = null;
+        }
+
+        return (
+            <div className={uploadsRemaining <= 0 ? ' style--none btn-file__disabled' : 'style--none'}>
+                {bodyAction}
+            </div>
         );
     }
 }

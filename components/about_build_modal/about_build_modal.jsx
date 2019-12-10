@@ -4,9 +4,12 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {Modal} from 'react-bootstrap';
-import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
+import {FormattedMessage} from 'react-intl';
 
-import MattermostLogo from 'components/svg/mattermost_logo';
+import FormattedMarkdownMessage from 'components/formatted_markdown_message';
+import MattermostLogo from 'components/widgets/icons/mattermost_logo';
+
+import {AboutLinks} from 'utils/constants';
 
 export default class AboutBuildModal extends React.PureComponent {
     static defaultProps = {
@@ -16,14 +19,9 @@ export default class AboutBuildModal extends React.PureComponent {
     static propTypes = {
 
         /**
-         * Determines whether modal is shown or not
-         */
-        show: PropTypes.bool.isRequired,
-
-        /**
          * Function that is called when the modal is dismissed
          */
-        onModalDismissed: PropTypes.func.isRequired,
+        onHide: PropTypes.func.isRequired,
 
         /**
          * Global config object
@@ -43,11 +41,18 @@ export default class AboutBuildModal extends React.PureComponent {
 
     constructor(props) {
         super(props);
-        this.doHide = this.doHide.bind(this);
+
+        this.state = {
+            show: true,
+        };
     }
 
-    doHide() {
-        this.props.onModalDismissed();
+    doHide = () => {
+        this.setState({show: false});
+    }
+
+    handleExit = () => {
+        this.props.onHide();
     }
 
     render() {
@@ -135,6 +140,43 @@ export default class AboutBuildModal extends React.PureComponent {
             }
         }
 
+        const termsOfService = (
+            <a
+                target='_blank'
+                id='tosLink'
+                rel='noopener noreferrer'
+                href={AboutLinks.TERMS_OF_SERVICE}
+            >
+                <FormattedMessage
+                    id='about.tos'
+                    defaultMessage='Terms of Service'
+                />
+            </a>
+        );
+
+        const privacyPolicy = (
+            <a
+                target='_blank'
+                id='privacyLink'
+                rel='noopener noreferrer'
+                href={AboutLinks.PRIVACY_POLICY}
+            >
+                <FormattedMessage
+                    id='about.privacy'
+                    defaultMessage='Privacy Policy'
+                />
+            </a>
+        );
+
+        let tosPrivacyHyphen;
+        if (config.TermsOfServiceLink && config.PrivacyPolicyLink) {
+            tosPrivacyHyphen = (
+                <span>
+                    {' - '}
+                </span>
+            );
+        }
+
         // Only show build number if it's a number (so only builds from Jenkins)
         let buildnumber = (
             <div>
@@ -156,15 +198,22 @@ export default class AboutBuildModal extends React.PureComponent {
 
         return (
             <Modal
-                dialogClassName='about-modal'
-                show={this.props.show}
+                dialogClassName='a11y__modal about-modal'
+                show={this.state.show}
                 onHide={this.doHide}
+                onExited={this.handleExit}
+                role='dialog'
+                aria-labelledby='aboutModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='aboutModalLabel'
+                    >
                         <FormattedMessage
                             id='about.title'
-                            defaultMessage='About Mattermost'
+                            values={{appTitle: config.SiteName || 'Mattermost'}}
+                            defaultMessage='About {appTitle}'
                         />
                     </Modal.Title>
                 </Modal.Header>
@@ -205,21 +254,28 @@ export default class AboutBuildModal extends React.PureComponent {
                     </div>
                     <div className='about-modal__footer'>
                         {learnMore}
-                        <div className='form-group about-modal__copyright'>
-                            <FormattedMessage
-                                id='about.copyright'
-                                defaultMessage='Copyright 2015 - {currentYear} Mattermost, Inc. All rights reserved'
-                                values={{
-                                    currentYear: new Date().getFullYear(),
-                                }}
-                            />
+                        <div className='form-group'>
+                            <div className='about-modal__copyright'>
+                                <FormattedMessage
+                                    id='about.copyright'
+                                    defaultMessage='Copyright 2015 - {currentYear} Mattermost, Inc. All rights reserved'
+                                    values={{
+                                        currentYear: new Date().getFullYear(),
+                                    }}
+                                />
+                            </div>
+                            <div className='about-modal__links'>
+                                {termsOfService}
+                                {tosPrivacyHyphen}
+                                {privacyPolicy}
+                            </div>
                         </div>
                     </div>
                     <div className='about-modal__notice form-group padding-top x2'>
                         <p>
-                            <FormattedHTMLMessage
+                            <FormattedMarkdownMessage
                                 id='about.notice'
-                                defaultMessage='Mattermost is made possible by the open source software used in our <a href="https://about.mattermost.com/platform-notice-txt/" target="_blank">platform</a>, <a href="https://about.mattermost.com/desktop-notice-txt/" target="_blank">desktop</a> and <a href="https://about.mattermost.com/mobile-notice-txt/" target="_blank">mobile</a> apps.'
+                                defaultMessage='Mattermost is made possible by the open source software used in our [server](!https://about.mattermost.com/platform-notice-txt/), [desktop](!https://about.mattermost.com/desktop-notice-txt/) and [mobile](!https://about.mattermost.com/mobile-notice-txt/) apps.'
                             />
                         </p>
                     </div>

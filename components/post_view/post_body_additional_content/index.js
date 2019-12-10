@@ -2,19 +2,27 @@
 // See LICENSE.txt for license information.
 
 import {connect} from 'react-redux';
-import {getConfig} from 'mattermost-redux/selectors/entities/general';
+import {bindActionCreators} from 'redux';
 
-import PostBodyAdditionalContent from './post_body_additional_content.jsx';
+import {toggleEmbedVisibility} from 'actions/post_actions';
 
-function mapStateToProps(state) {
-    const config = getConfig(state);
-    const enableLinkPreviews = config.EnableLinkPreviews === 'true';
-    const hasImageProxy = config.HasImageProxy === 'true';
+import {isEmbedVisible} from 'selectors/posts';
 
+import PostBodyAdditionalContent from './post_body_additional_content';
+
+function mapStateToProps(state, ownProps) {
     return {
-        enableLinkPreviews,
-        hasImageProxy,
+        isEmbedVisible: isEmbedVisible(state, ownProps.post.id),
+        pluginPostWillRenderEmbedComponents: state.plugins.components.PostWillRenderEmbedComponent,
     };
 }
 
-export default connect(mapStateToProps)(PostBodyAdditionalContent);
+function mapDispatchToProps(dispatch) {
+    return {
+        actions: bindActionCreators({
+            toggleEmbedVisibility,
+        }, dispatch),
+    };
+}
+
+export default connect(mapStateToProps, mapDispatchToProps)(PostBodyAdditionalContent);

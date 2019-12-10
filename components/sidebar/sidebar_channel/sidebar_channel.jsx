@@ -2,11 +2,11 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import {FormattedMessage} from 'react-intl';
 import PropTypes from 'prop-types';
 
 import {browserHistory} from 'utils/browser_history';
-import {Constants} from 'utils/constants.jsx';
+import {Constants} from 'utils/constants';
+import {intlShape} from 'utils/react_intl';
 import {trackEvent} from 'actions/diagnostics_actions.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
 import SidebarChannelButtonOrLink from '../sidebar_channel_button_or_link/sidebar_channel_button_or_link.jsx';
@@ -76,6 +76,16 @@ export default class SidebarChannel extends React.PureComponent {
         channelTeammateDeletedAt: PropTypes.number,
 
         /**
+         * Teammate is_bot (for direct messages)
+         */
+        channelTeammateIsBot: PropTypes.bool,
+
+        /**
+         * Whether the channel contains a draft in the center channel
+         */
+        hasDraft: PropTypes.bool.isRequired,
+
+        /**
          * Whether or not to mark the channel as unread when it has unread messages and no mentions
          */
         showUnreadForMsgs: PropTypes.bool.isRequired,
@@ -130,11 +140,19 @@ export default class SidebarChannel extends React.PureComponent {
          */
         shouldHideChannel: PropTypes.bool.isRequired,
 
+        channelIsArchived: PropTypes.bool.isRequired,
+
+        redirectChannel: PropTypes.string.isRequired,
+
         actions: PropTypes.shape({
             savePreferences: PropTypes.func.isRequired,
             leaveChannel: PropTypes.func.isRequired,
             openLhs: PropTypes.func.isRequired,
         }).isRequired,
+    }
+
+    static contextTypes = {
+        intl: intlShape.isRequired,
     }
 
     isLeaving = false;
@@ -174,7 +192,7 @@ export default class SidebarChannel extends React.PureComponent {
         }
 
         if (this.props.active) {
-            browserHistory.push(`/${this.props.currentTeamName}/channels/${Constants.DEFAULT_CHANNEL}`);
+            browserHistory.push(`/${this.props.currentTeamName}/channels/${this.props.redirectChannel}`);
         }
     }
 
@@ -183,6 +201,9 @@ export default class SidebarChannel extends React.PureComponent {
     };
 
     render = () => {
+        if (this.props.channelIsArchived && !this.props.active) {
+            return null;
+        }
         if (!this.props.channelDisplayName || !this.props.channelType) {
             return (<div/>);
         }
@@ -252,15 +273,12 @@ export default class SidebarChannel extends React.PureComponent {
 
         let displayName = '';
         if (this.props.currentUserId === this.props.channelTeammateId) {
-            displayName = (
-                <FormattedMessage
-                    id='sidebar.directchannel.you'
-                    defaultMessage='{displayname} (you)'
-                    values={{
-                        displayname: this.props.channelDisplayName,
-                    }}
-                />
-            );
+            displayName = this.context.intl.formatMessage({
+                id: 'sidebar.directchannel.you',
+                defaultMessage: '{displayname} (you)',
+            }, {
+                displayname: this.props.channelDisplayName,
+            });
         } else {
             displayName = this.props.channelDisplayName;
         }
@@ -275,15 +293,21 @@ export default class SidebarChannel extends React.PureComponent {
                     link={link}
                     rowClass={rowClass}
                     channelId={this.props.channelId}
+                    channelName={this.props.channelName}
                     channelStatus={this.props.channelStatus}
                     channelType={this.props.channelType}
                     displayName={displayName}
                     handleClose={closeHandler}
+                    hasDraft={this.props.hasDraft}
                     badge={badge}
+                    showUnreadForMsgs={this.props.showUnreadForMsgs}
                     unreadMentions={this.props.unreadMentions}
+                    unreadMsgs={this.props.unreadMsgs}
                     membersCount={this.props.membersCount}
                     teammateId={this.props.channelTeammateId}
                     teammateDeletedAt={this.props.channelTeammateDeletedAt}
+                    teammateIsBot={this.props.channelTeammateIsBot}
+                    channelIsArchived={this.props.channelIsArchived}
                 />
                 {tutorialTip}
             </li>

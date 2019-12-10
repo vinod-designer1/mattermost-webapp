@@ -1,11 +1,7 @@
 @charset 'UTF-8';
 
 .inner-wrap {
-    &.move--left,
-    &.webrtc--show {
-        .search-bar__container {
-            display: none;
-        }
+    &.move--left {
 
         .search-btns {
             display: none;

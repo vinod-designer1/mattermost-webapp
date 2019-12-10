@@ -2,50 +2,146 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
+import PropTypes from 'prop-types';
+import {FormattedMessage} from 'react-intl';
+import {Overlay, Tooltip} from 'react-bootstrap';
 
 import * as I18n from 'i18n/i18n.jsx';
 
-import {SettingsTypes} from 'utils/constants.jsx';
-import {formatText} from 'utils/text_formatting.jsx';
+import Constants from 'utils/constants';
+import {rolesFromMapping, mappingValueFromRoles} from 'utils/policy_roles_adapter';
 import * as Utils from 'utils/utils.jsx';
 import RequestButton from 'components/admin_console/request_button/request_button';
-import LoadingScreen from 'components/loading_screen.jsx';
-import AdminSettings from 'components/admin_console/admin_settings.jsx';
-import BooleanSetting from 'components/admin_console/boolean_setting.jsx';
-import TextSetting from 'components/admin_console/text_setting.jsx';
+import LoadingScreen from 'components/loading_screen';
+import BooleanSetting from 'components/admin_console/boolean_setting';
+import TextSetting from 'components/admin_console/text_setting';
 import DropdownSetting from 'components/admin_console/dropdown_setting.jsx';
 import MultiSelectSetting from 'components/admin_console/multiselect_settings.jsx';
-import RadioSetting from 'components/admin_console/radio_setting.jsx';
-import ColorSetting from 'components/admin_console/color_setting.jsx';
-import GeneratedSetting from 'components/admin_console/generated_setting.jsx';
+import RadioSetting from 'components/admin_console/radio_setting';
+import ColorSetting from 'components/admin_console/color_setting';
+import GeneratedSetting from 'components/admin_console/generated_setting';
 import UserAutocompleteSetting from 'components/admin_console/user_autocomplete_setting.jsx';
 import SettingsGroup from 'components/admin_console/settings_group.jsx';
 import JobsTable from 'components/admin_console/jobs';
+import FileUploadSetting from 'components/admin_console/file_upload_setting.jsx';
+import RemoveFileSetting from 'components/admin_console/remove_file_setting.jsx';
+import SchemaText from 'components/admin_console/schema_text';
+import SaveButton from 'components/save_button';
+import FormError from 'components/form_error';
+import WarningIcon from 'components/widgets/icons/fa_warning_icon';
 
-export default class SchemaAdminSettings extends AdminSettings {
+import FormattedMarkdownMessage from 'components/formatted_markdown_message';
+
+import AdminHeader from 'components/widgets/admin_console/admin_header';
+import FormattedAdminHeader from 'components/widgets/admin_console/formatted_admin_header';
+
+import Setting from './setting';
+
+export default class SchemaAdminSettings extends React.Component {
+    static propTypes = {
+        config: PropTypes.object,
+        environmentConfig: PropTypes.object,
+        setNavigationBlocked: PropTypes.func,
+        schema: PropTypes.object,
+        roles: PropTypes.object,
+        license: PropTypes.object,
+        editRole: PropTypes.func,
+        updateConfig: PropTypes.func.isRequired,
+    }
+
     constructor(props) {
         super(props);
+        this.isPlugin = false;
+
+        this.saveActions = [];
+
         this.buildSettingFunctions = {
-            [SettingsTypes.TYPE_TEXT]: this.buildTextSetting,
-            [SettingsTypes.TYPE_NUMBER]: this.buildTextSetting,
-            [SettingsTypes.TYPE_COLOR]: this.buildColorSetting,
-            [SettingsTypes.TYPE_BOOL]: this.buildBoolSetting,
-            [SettingsTypes.TYPE_DROPDOWN]: this.buildDropdownSetting,
-            [SettingsTypes.TYPE_RADIO]: this.buildRadioSetting,
-            [SettingsTypes.TYPE_BANNER]: this.buildBannerSetting,
-            [SettingsTypes.TYPE_GENERATED]: this.buildGeneratedSetting,
-            [SettingsTypes.TYPE_USERNAME]: this.buildUsernameSetting,
-            [SettingsTypes.TYPE_BUTTON]: this.buildButtonSetting,
-            [SettingsTypes.TYPE_LANGUAGE]: this.buildLanguageSetting,
-            [SettingsTypes.TYPE_JOBSTABLE]: this.buildJobsTableSetting,
-            [SettingsTypes.TYPE_CUSTOM]: this.buildCustomSetting,
+            [Constants.SettingsTypes.TYPE_TEXT]: this.buildTextSetting,
+            [Constants.SettingsTypes.TYPE_LONG_TEXT]: this.buildTextSetting,
+            [Constants.SettingsTypes.TYPE_NUMBER]: this.buildTextSetting,
+            [Constants.SettingsTypes.TYPE_COLOR]: this.buildColorSetting,
+            [Constants.SettingsTypes.TYPE_BOOL]: this.buildBoolSetting,
+            [Constants.SettingsTypes.TYPE_PERMISSION]: this.buildPermissionSetting,
+            [Constants.SettingsTypes.TYPE_DROPDOWN]: this.buildDropdownSetting,
+            [Constants.SettingsTypes.TYPE_RADIO]: this.buildRadioSetting,
+            [Constants.SettingsTypes.TYPE_BANNER]: this.buildBannerSetting,
+            [Constants.SettingsTypes.TYPE_GENERATED]: this.buildGeneratedSetting,
+            [Constants.SettingsTypes.TYPE_USERNAME]: this.buildUsernameSetting,
+            [Constants.SettingsTypes.TYPE_BUTTON]: this.buildButtonSetting,
+            [Constants.SettingsTypes.TYPE_LANGUAGE]: this.buildLanguageSetting,
+            [Constants.SettingsTypes.TYPE_JOBSTABLE]: this.buildJobsTableSetting,
+            [Constants.SettingsTypes.TYPE_FILE_UPLOAD]: this.buildFileUploadSetting,
+            [Constants.SettingsTypes.TYPE_CUSTOM]: this.buildCustomSetting,
+        };
+        this.state = {
+            saveNeeded: false,
+            saving: false,
+            serverError: null,
+            errorTooltip: false,
+            customComponentWrapperClass: '',
         };
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (nextProps.schema !== this.props.schema) {
-            this.setState(this.getStateFromConfig(nextProps.config, nextProps.schema));
+    static getDerivedStateFromProps(props, state) {
+        if (props.schema && props.schema.id !== state.prevSchemaId) {
+            return {
+                prevSchemaId: props.schema.id,
+                saveNeeded: false,
+                saving: false,
+                serverError: null,
+                errorTooltip: false,
+                ...SchemaAdminSettings.getStateFromConfig(props.config, props.schema, props.roles),
+            };
+        }
+        return null;
+    }
+
+    handleSubmit = async (e) => {
+        e.preventDefault();
+
+        this.setState({
+            saving: true,
+            serverError: null,
+        });
+
+        if (this.state.saveNeeded === 'both' || this.state.saveNeeded === 'permissions') {
+            const settings = (this.props.schema && this.props.schema.settings) || [];
+            const rolesBinding = settings.reduce((acc, val) => {
+                if (val.type === Constants.SettingsTypes.TYPE_PERMISSION) {
+                    acc[val.permissions_mapping_name] = this.state[val.key].toString();
+                }
+                return acc;
+            }, {});
+            const updatedRoles = rolesFromMapping(rolesBinding, this.props.roles);
+
+            let success = true;
+
+            await Promise.all(Object.values(updatedRoles).map(async (item) => {
+                try {
+                    await this.props.editRole(item);
+                } catch (err) {
+                    success = false;
+                    this.setState({
+                        saving: false,
+                        serverError: err.message,
+                    });
+                }
+            }));
+
+            if (!success) {
+                return;
+            }
+        }
+
+        if (this.state.saveNeeded === 'both' || this.state.saveNeeded === 'config') {
+            this.doSubmit(null, SchemaAdminSettings.getStateFromConfig);
+        } else {
+            this.setState({
+                saving: false,
+                saveNeeded: false,
+                serverError: null,
+            });
+            this.props.setNavigationBlocked(false);
         }
     }
 
@@ -59,21 +155,31 @@ export default class SchemaAdminSettings extends AdminSettings {
                     return;
                 }
 
+                if (setting.type === Constants.SettingsTypes.TYPE_PERMISSION) {
+                    this.setConfigValue(config, setting.key, null);
+                    return;
+                }
+
                 let value = this.getSettingValue(setting);
+                const previousValue = SchemaAdminSettings.getConfigValue(config, setting.key);
 
                 if (setting.onConfigSave) {
-                    value = setting.onConfigSave(value);
+                    value = setting.onConfigSave(value, previousValue);
                 }
 
                 this.setConfigValue(config, setting.key, value);
             });
+
+            if (schema.onConfigSave) {
+                return schema.onConfigSave(config, this.props.config);
+            }
         }
 
         return config;
     }
 
-    getStateFromConfig(config, schema = this.props.schema) {
-        const state = {};
+    static getStateFromConfig(config, schema, roles) {
+        let state = {};
 
         if (schema) {
             const settings = schema.settings || [];
@@ -82,14 +188,27 @@ export default class SchemaAdminSettings extends AdminSettings {
                     return;
                 }
 
-                let value = this.getConfigValue(config, setting.key);
+                if (setting.type === Constants.SettingsTypes.TYPE_PERMISSION) {
+                    try {
+                        state[setting.key] = mappingValueFromRoles(setting.permissions_mapping_name, roles) === 'true';
+                    } catch (e) {
+                        state[setting.key] = false;
+                    }
+                    return;
+                }
+
+                let value = SchemaAdminSettings.getConfigValue(config, setting.key);
 
                 if (setting.onConfigLoad) {
-                    value = setting.onConfigLoad(value);
+                    value = setting.onConfigLoad(value, config);
                 }
 
                 state[setting.key] = value == null ? setting.default : value;
             });
+
+            if (schema.onConfigLoad) {
+                state = {...state, ...schema.onConfigLoad(config)};
+            }
         }
 
         return state;
@@ -107,10 +226,13 @@ export default class SchemaAdminSettings extends AdminSettings {
 
     getSettingValue(setting) {
         // Force boolean values to false when disabled.
-        if (setting.type === SettingsTypes.TYPE_BOOL) {
+        if (setting.type === Constants.SettingsTypes.TYPE_BOOL) {
             if (this.isDisabled(setting)) {
                 return false;
             }
+        }
+        if (setting.type === Constants.SettingsTypes.TYPE_TEXT && setting.dynamic_value) {
+            return setting.dynamic_value(this.state[setting.key], this.props.config, this.state, this.props.license);
         }
 
         return this.state[setting.key];
@@ -121,24 +243,33 @@ export default class SchemaAdminSettings extends AdminSettings {
             return '';
         }
         if (this.props.schema.translate === false) {
-            return this.props.schema.name || this.props.schema.id;
+            return (
+                <AdminHeader>
+                    {this.props.schema.name || this.props.schema.id}
+                </AdminHeader>
+            );
         }
-        return <FormattedMessage id={this.props.schema.name || this.props.schema.id}/>;
-    }
+        return (
+            <FormattedAdminHeader
+                id={this.props.schema.name || this.props.schema.id}
+                defaultMessage={this.props.schema.name_default || this.props.schema.id}
+            />
+        );
+    };
 
     renderBanner = (setting) => {
         if (!this.props.schema) {
             return <span>{''}</span>;
         }
 
-        if (this.props.schema.translate === false) {
+        if (setting.label.translate === false) {
             return <span>{setting.label}</span>;
         }
 
         if (typeof setting.label === 'string') {
-            if (setting.label_html) {
+            if (setting.label_markdown) {
                 return (
-                    <FormattedHTMLMessage
+                    <FormattedMarkdownMessage
                         id={setting.label}
                         values={setting.label_values}
                         defaultMessage={setting.label_default}
@@ -161,46 +292,35 @@ export default class SchemaAdminSettings extends AdminSettings {
             return <span>{''}</span>;
         }
 
-        if (this.props.schema.translate === false) {
-            return <span>{setting.help_text}</span>;
+        if (!setting.help_text) {
+            return null;
         }
 
         let helpText;
-        let isHTML;
+        let isMarkdown;
         let helpTextValues;
         let helpTextDefault;
         if (setting.disabled_help_text && this.isDisabled(setting)) {
             helpText = setting.disabled_help_text;
-            isHTML = setting.disabled_help_text_html;
+            isMarkdown = setting.disabled_help_text_markdown;
             helpTextValues = setting.disabled_help_text_values;
             helpTextDefault = setting.disabled_help_text_default;
         } else {
             helpText = setting.help_text;
-            isHTML = setting.help_text_html;
+            isMarkdown = setting.help_text_markdown;
             helpTextValues = setting.help_text_values;
             helpTextDefault = setting.help_text_default;
         }
 
-        if (typeof helpText === 'string') {
-            if (isHTML) {
-                return (
-                    <FormattedHTMLMessage
-                        id={helpText}
-                        values={helpTextValues}
-                        defaultMessage={helpTextDefault}
-                    />
-                );
-            }
-            return (
-                <FormattedMessage
-                    id={helpText}
-                    defaultMessage={helpTextDefault}
-                    values={helpTextValues}
-                />
-            );
-        }
-
-        return helpText;
+        return (
+            <SchemaText
+                isMarkdown={isMarkdown}
+                isTranslated={setting.translate}
+                text={helpText}
+                textDefault={helpTextDefault}
+                textValues={helpTextValues}
+            />
+        );
     }
 
     renderLabel = (setting) => {
@@ -208,33 +328,35 @@ export default class SchemaAdminSettings extends AdminSettings {
             return '';
         }
 
-        if (this.props.schema.translate === false) {
+        if (setting.translate === false) {
             return setting.label;
         }
         return Utils.localizeMessage(setting.label, setting.label_default);
     }
 
     isDisabled = (setting) => {
-        if (!setting.isDisabled || typeof setting.isDisabled !== 'function') {
-            return false;
+        if (typeof setting.isDisabled === 'function') {
+            return setting.isDisabled(this.props.config, this.state, this.props.license);
         }
-
-        return setting.isDisabled(this.props.config, this.state, this.props.license);
+        return Boolean(setting.isDisabled);
     }
 
     isHidden = (setting) => {
-        if (!setting.isHidden || typeof setting.isHidden !== 'function') {
-            return false;
+        if (typeof setting.isHidden === 'function') {
+            return setting.isHidden(this.props.config, this.state, this.props.license);
         }
-
-        return setting.isHidden(this.props.config, this.state, this.props.license);
+        return Boolean(setting.isHidden);
     }
 
     buildButtonSetting = (setting) => {
+        const handleRequestAction = (success, error) => {
+            setting.action(success, error, this.state['ServiceSettings.SiteURL']);
+        };
+
         return (
             <RequestButton
                 key={this.props.schema.id + '_text_' + setting.key}
-                requestAction={setting.action}
+                requestAction={handleRequestAction}
                 helpText={this.renderHelpText(setting)}
                 loadingText={Utils.localizeMessage(setting.loading, setting.loading_default)}
                 buttonText={<span>{this.renderLabel(setting)}</span>}
@@ -254,9 +376,17 @@ export default class SchemaAdminSettings extends AdminSettings {
 
     buildTextSetting = (setting) => {
         let inputType = 'input';
-        if (setting.type === SettingsTypes.TYPE_NUMBER) {
+        if (setting.type === Constants.SettingsTypes.TYPE_NUMBER) {
             inputType = 'number';
+        } else if (setting.type === Constants.SettingsTypes.TYPE_LONG_TEXT) {
+            inputType = 'textarea';
         }
+
+        let value = this.state[setting.key] || '';
+        if (setting.dynamic_value) {
+            value = setting.dynamic_value(value, this.props.config, this.state, this.props.license);
+        }
+
         return (
             <TextSetting
                 key={this.props.schema.id + '_text_' + setting.key}
@@ -265,10 +395,11 @@ export default class SchemaAdminSettings extends AdminSettings {
                 label={this.renderLabel(setting)}
                 helpText={this.renderHelpText(setting)}
                 placeholder={Utils.localizeMessage(setting.placeholder, setting.placeholder_default)}
-                value={this.state[setting.key] || ''}
+                value={value}
                 disabled={this.isDisabled(setting)}
                 setByEnv={this.isSetByEnv(setting.key)}
                 onChange={this.handleChange}
+                maxLength={setting.max_length}
             />
         );
     }
@@ -303,9 +434,40 @@ export default class SchemaAdminSettings extends AdminSettings {
         );
     }
 
+    buildPermissionSetting = (setting) => {
+        return (
+            <BooleanSetting
+                key={this.props.schema.id + '_bool_' + setting.key}
+                id={setting.key}
+                label={this.renderLabel(setting)}
+                helpText={this.renderHelpText(setting)}
+                value={(!this.isDisabled(setting) && this.state[setting.key]) || false}
+                disabled={this.isDisabled(setting)}
+                setByEnv={this.isSetByEnv(setting.key)}
+                onChange={this.handlePermissionChange}
+            />
+        );
+    }
+
     buildDropdownSetting = (setting) => {
-        const options = setting.options || [];
-        const values = options.map((o) => ({value: o.value, text: Utils.localizeMessage(o.display_name)}));
+        const enterpriseReady = this.props.config.BuildEnterpriseReady === 'true';
+        const options = [];
+        setting.options.forEach((option) => {
+            if (!option.isHidden || !option.isHidden(this.props.config, this.state, this.props.license, enterpriseReady)) {
+                options.push(option);
+            }
+        });
+
+        const values = options.map((o) => ({value: o.value, text: Utils.localizeMessage(o.display_name, o.display_name_default)}));
+        const selectedValue = this.state[setting.key] || values[0].value;
+
+        let selectedOptionForHelpText = null;
+        for (const option of options) {
+            if (option.help_text && option.value === selectedValue) {
+                selectedOptionForHelpText = option;
+                break;
+            }
+        }
 
         return (
             <DropdownSetting
@@ -313,8 +475,8 @@ export default class SchemaAdminSettings extends AdminSettings {
                 id={setting.key}
                 values={values}
                 label={this.renderLabel(setting)}
-                helpText={this.renderHelpText(setting)}
-                value={this.state[setting.key] || values[0].value}
+                helpText={this.renderHelpText(selectedOptionForHelpText || setting)}
+                value={selectedValue}
                 disabled={this.isDisabled(setting)}
                 setByEnv={this.isSetByEnv(setting.key)}
                 onChange={this.handleChange}
@@ -401,7 +563,10 @@ export default class SchemaAdminSettings extends AdminSettings {
                 key={this.props.schema.id + '_bool_' + setting.key}
             >
                 <div className='banner__content'>
-                    <span>{this.renderBanner(setting)}</span>
+                    <span>
+                        { setting.banner_type === 'warning' ? <WarningIcon additionalClassName='banner__icon'/> : null}
+                        {this.renderBanner(setting)}
+                    </span>
                 </div>
             </div>
         );
@@ -428,6 +593,32 @@ export default class SchemaAdminSettings extends AdminSettings {
         this.handleChange(id, s.replace('+', '-').replace('/', '_'));
     }
 
+    handleChange = (id, value) => {
+        let saveNeeded = 'config';
+        if (this.state.saveNeeded === 'permissions') {
+            saveNeeded = 'both';
+        }
+        this.setState({
+            saveNeeded,
+            [id]: value,
+        });
+
+        this.props.setNavigationBlocked(true);
+    }
+
+    handlePermissionChange = (id, value) => {
+        let saveNeeded = 'permissions';
+        if (this.state.saveNeeded === 'config') {
+            saveNeeded = 'both';
+        }
+        this.setState({
+            saveNeeded,
+            [id]: value,
+        });
+
+        this.props.setNavigationBlocked(true);
+    }
+
     buildUsernameSetting = (setting) => {
         return (
             <UserAutocompleteSetting
@@ -446,7 +637,7 @@ export default class SchemaAdminSettings extends AdminSettings {
     buildJobsTableSetting = (setting) => {
         return (
             <JobsTable
-                key={this.props.schema.id + '_userautocomplete_' + setting.key}
+                key={this.props.schema.id + '_jobstable_' + setting.key}
                 jobType={setting.job_type}
                 getExtraInfoText={setting.render_job}
                 disabled={this.isDisabled(setting)}
@@ -457,7 +648,7 @@ export default class SchemaAdminSettings extends AdminSettings {
                     />
                 }
                 createJobHelpText={
-                    <FormattedMessage
+                    <FormattedMarkdownMessage
                         id={setting.help_text}
                         defaultMessage={setting.help_text_default}
                     />
@@ -466,18 +657,118 @@ export default class SchemaAdminSettings extends AdminSettings {
         );
     }
 
-    buildCustomSetting = (setting) => {
-        const CustomComponent = setting.component;
+    buildFileUploadSetting = (setting) => {
+        if (this.state[setting.key]) {
+            const removeFile = (id, callback) => {
+                const successCallback = () => {
+                    this.handleChange(setting.key, '');
+                    this.setState({[setting.key]: null, [`${setting.key}Error`]: null});
+                };
+                const errorCallback = (error) => {
+                    callback();
+                    this.setState({[setting.key]: null, [`${setting.key}Error`]: error.message});
+                };
+                setting.remove_action(successCallback, errorCallback);
+            };
+            return (
+                <RemoveFileSetting
+                    id={this.props.schema.id}
+                    key={this.props.schema.id + '_fileupload_' + setting.key}
+                    label={this.renderLabel(setting)}
+                    helpText={
+                        <FormattedMessage
+                            id={setting.remove_help_text}
+                            defaultMessage={setting.remove_help_text_default}
+                        />
+                    }
+                    removeButtonText={Utils.localizeMessage(setting.remove_button_text, setting.remove_button_text_default)}
+                    removingText={Utils.localizeMessage(setting.removing_text, setting.removing_text_default)}
+                    fileName={this.state[setting.key]}
+                    onSubmit={removeFile}
+                    disabled={this.isDisabled(setting)}
+                    setByEnv={this.isSetByEnv(setting.key)}
+                />
+            );
+        }
+        const uploadFile = (id, file, callback) => {
+            const successCallback = (filename) => {
+                this.handleChange(id, filename);
+                this.setState({[setting.key]: filename, [`${setting.key}Error`]: null});
+                if (callback && typeof callback === 'function') {
+                    callback();
+                }
+            };
+            const errorCallback = (error) => {
+                if (callback && typeof callback === 'function') {
+                    callback(error.message);
+                }
+            };
+            setting.upload_action(file, successCallback, errorCallback);
+        };
         return (
-            <CustomComponent
-                key={this.props.schema.id + '_userautocomplete_' + setting.key}
+            <FileUploadSetting
                 id={setting.key}
-                value={this.state[setting.key] || ''}
+                key={this.props.schema.id + '_fileupload_' + setting.key}
+                label={this.renderLabel(setting)}
+                helpText={this.renderHelpText(setting)}
+                uploadingText={Utils.localizeMessage(setting.uploading_text, setting.uploading_text_default)}
                 disabled={this.isDisabled(setting)}
+                fileType={setting.fileType}
+                onSubmit={uploadFile}
+                error={this.state.idpCertificateFileError}
                 setByEnv={this.isSetByEnv(setting.key)}
-                onChange={this.handleChange}
             />
         );
+    }
+
+    buildCustomSetting = (setting) => {
+        const CustomComponent = setting.component;
+
+        const componentInstance = (
+            <CustomComponent
+                key={this.props.schema.id + '_custom_' + setting.key}
+                id={setting.key}
+                label={this.renderLabel(setting)}
+                helpText={this.renderHelpText(setting)}
+                value={this.state[setting.key]}
+                disabled={this.isDisabled(setting)}
+                config={this.props.config}
+                license={this.props.license}
+                setByEnv={this.isSetByEnv(setting.key)}
+                onChange={this.handleChange}
+                registerSaveAction={this.registerSaveAction}
+                setSaveNeeded={this.setSaveNeeded}
+                unRegisterSaveAction={this.unRegisterSaveAction}
+            />);
+
+        // Show the plugin custom setting title
+        // consistently as other settings with the Setting component
+        if (setting.showTitle) {
+            return (
+                <Setting
+                    label={setting.label}
+                    inputId={setting.key}
+                    helpText={setting.helpText}
+                >
+                    {componentInstance}
+                </Setting>
+            );
+        }
+        return componentInstance;
+    }
+
+    unRegisterSaveAction = (saveAction) => {
+        const indexOfSaveAction = this.saveActions.indexOf(saveAction);
+        this.saveActions.splice(indexOfSaveAction, 1);
+    }
+
+    registerSaveAction = (saveAction) => {
+        this.saveActions.push(saveAction);
+    }
+
+    setSaveNeeded = () => {
+        this.setState({saveNeeded: 'config'});
+        this.props.setNavigationBlocked(true);
     }
 
     renderSettings = () => {
@@ -491,12 +782,7 @@ export default class SchemaAdminSettings extends AdminSettings {
         if (schema.settings) {
             schema.settings.forEach((setting) => {
                 if (this.buildSettingFunctions[setting.type] && !this.isHidden(setting)) {
-                    // This is a hack required as plugin settings are case insensitive
-                    let s = setting;
-                    if (this.isPlugin) {
-                        s = {...setting, key: setting.key.toLowerCase()};
-                    }
-                    settingsList.push(this.buildSettingFunctions[setting.type](s));
+                    settingsList.push(this.buildSettingFunctions[setting.type](setting));
                 }
             });
         }
@@ -504,25 +790,31 @@ export default class SchemaAdminSettings extends AdminSettings {
         let header;
         if (schema.header) {
             header = (
-                <div
-                    className='banner'
-                    dangerouslySetInnerHTML={{__html: formatText(schema.header, {mentionHighlight: false})}}
-                />
+                <div className='banner'>
+                    <SchemaText
+                        text={schema.header}
+                        isMarkdown={true}
+                        isTranslated={this.props.schema.translate}
+                    />
+                </div>
             );
         }
 
         let footer;
         if (schema.footer) {
             footer = (
-                <div
-                    className='banner'
-                    dangerouslySetInnerHTML={{__html: formatText(schema.footer, {mentionHighlight: false})}}
-                />
+                <div className='banner'>
+                    <SchemaText
+                        text={schema.footer}
+                        isMarkdown={true}
+                        isTranslated={this.props.schema.translate}
+                    />
+                </div>
             );
         }
 
         return (
-            <SettingsGroup>
+            <SettingsGroup container={false}>
                 {header}
                 {settingsList}
                 {footer}
@@ -530,13 +822,168 @@ export default class SchemaAdminSettings extends AdminSettings {
         );
     }
 
+    closeTooltip = () => {
+        this.setState({errorTooltip: false});
+    }
+
+    openTooltip = (e) => {
+        const elm = e.currentTarget.querySelector('.control-label');
+        const isElipsis = elm.offsetWidth < elm.scrollWidth;
+        this.setState({errorTooltip: isElipsis});
+    }
+
+    doSubmit = async (callback, getStateFromConfig) => {
+        this.setState({
+            saving: true,
+            serverError: null,
+        });
+
+        // clone config so that we aren't modifying data in the stores
+        let config = JSON.parse(JSON.stringify(this.props.config));
+        config = this.getConfigFromState(config);
+
+        const {error} = await this.props.updateConfig(config);
+        if (error) {
+            this.setState({
+                serverError: error.message,
+                serverErrorId: error.id,
+            });
+        } else {
+            this.setState(getStateFromConfig(config));
+        }
+
+        if (callback) {
+            callback();
+        }
+
+        if (this.handleSaved) {
+            this.handleSaved(config);
+        }
+
+        const results = [];
+        for (const saveAction of this.saveActions) {
+            results.push(saveAction());
+        }
+
+        const hasSaveActionError = await Promise.all(results).then((values) => values.some(((value) => value.error && value.error.message)));
+
+        const hasError = this.state.serverError || hasSaveActionError;
+        if (hasError) {
+            this.setState({saving: false});
+        } else {
+            this.setState({saving: false, saveNeeded: false});
+            this.props.setNavigationBlocked(false);
+        }
+    };
+
+    // Some path parts may contain periods (e.g. plugin ids), but path walking the configuration
+    // relies on splitting by periods. Use this pair of functions to allow such path parts.
+    //
+    // It is assumed that no path contains the symbol '+'.
+    static escapePathPart(pathPart) {
+        return pathPart.replace(/\./g, '+');
+    }
+
+    static unescapePathPart(pathPart) {
+        return pathPart.replace(/\+/g, '.');
+    }
+
+    static getConfigValue(config, path) {
+        const pathParts = path.split('.');
+
+        return pathParts.reduce((obj, pathPart) => {
+            if (!obj) {
+                return null;
+            }
+
+            return obj[SchemaAdminSettings.unescapePathPart(pathPart)];
+        }, config);
+    }
+
+    setConfigValue(config, path, value) {
+        function setValue(obj, pathParts) {
+            const part = SchemaAdminSettings.unescapePathPart(pathParts[0]);
+
+            if (pathParts.length === 1) {
+                obj[part] = value;
+            } else {
+                if (obj[part] == null) {
+                    obj[part] = {};
+                }
+
+                setValue(obj[part], pathParts.slice(1));
+            }
+        }
+
+        setValue(config, path.split('.'));
+    }
+
+    isSetByEnv = (path) => {
+        return Boolean(SchemaAdminSettings.getConfigValue(this.props.environmentConfig, path));
+    };
+
+    hybridSchemaAndComponent = () => {
+        const schema = this.props.schema;
+        if (schema && schema.component && schema.settings) {
+            const CustomComponent = schema.component;
+            return (
+                <CustomComponent {...this.props}/>
+            );
+        }
+        return null;
+    }
+
     render = () => {
         const schema = this.props.schema;
-
-        if (schema && schema.component) {
+        if (schema && schema.component && !schema.settings) {
             const CustomComponent = schema.component;
-            return (<CustomComponent {...this.props}/>);
+            return (
+                <CustomComponent {...this.props}/>
+            );
         }
-        return AdminSettings.prototype.render.call(this);
+
+        return (
+            <div className={'wrapper--fixed ' + this.state.customComponentWrapperClass}>
+                {this.renderTitle()}
+                <div className='admin-console__wrapper'>
+                    <div className='admin-console__content'>
+                        <form
+                            className='form-horizontal'
+                            role='form'
+                            onSubmit={this.handleSubmit}
+                        >
+                            {this.renderSettings()}
+                        </form>
+                        {this.hybridSchemaAndComponent()}
+                    </div>
+                </div>
+                <div className='admin-console-save'>
+                    <SaveButton
+                        saving={this.state.saving}
+                        disabled={!this.state.saveNeeded || (this.canSave && !this.canSave())}
+                        onClick={this.handleSubmit}
+                        savingMessage={Utils.localizeMessage('admin.saving', 'Saving Config...')}
+                    />
+                    <div
+                        className='error-message'
+                        ref='errorMessage'
+                        onMouseOver={this.openTooltip}
+                        onMouseOut={this.closeTooltip}
+                    >
+                        <FormError error={this.state.serverError}/>
+                    </div>
+                    <Overlay
+                        show={this.state.errorTooltip}
+                        delayShow={Constants.OVERLAY_TIME_DELAY}
+                        placement='top'
+                        target={this.refs.errorMessage}
+                    >
+                        <Tooltip id='error-tooltip' >
+                            {this.state.serverError}
+                        </Tooltip>
+                    </Overlay>
+                </div>
+            </div>
+        );
     }
 }

@@ -18,13 +18,12 @@ export default class Suggestion extends React.Component {
         };
     }
 
-    constructor(props) {
-        super(props);
+    static baseProps = {
+        role: 'button',
+        tabIndex: -1,
+    };
 
-        this.handleClick = this.handleClick.bind(this);
-    }
-
-    handleClick(e) {
+    handleClick = (e) => {
         e.preventDefault();
 
         this.props.onClick(this.props.term, this.props.matchedPretext);

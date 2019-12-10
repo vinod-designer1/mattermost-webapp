@@ -5,7 +5,7 @@ import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import Setting from './setting.jsx';
+import Setting from './setting';
 
 export default class RemoveFileSetting extends Setting {
     static get propTypes() {
@@ -21,12 +21,7 @@ export default class RemoveFileSetting extends Setting {
         };
     }
 
-    constructor(props) {
-        super(props);
-        this.handleRemove = this.handleRemove.bind(this);
-    }
-
-    handleRemove(e) {
+    handleRemove = (e) => {
         e.preventDefault();
 
         $(this.refs.remove_button).button('loading');

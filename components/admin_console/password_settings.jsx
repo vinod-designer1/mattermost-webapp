@@ -4,26 +4,18 @@
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
+import {t} from 'utils/i18n';
 
-import AdminSettings from './admin_settings.jsx';
-import Setting from './setting.jsx';
+import AdminSettings from './admin_settings';
+import Setting from './setting';
 import SettingsGroup from './settings_group.jsx';
-import TextSetting from './text_setting.jsx';
+import TextSetting from './text_setting';
 
 export default class PasswordSettings extends AdminSettings {
     constructor(props) {
         super(props);
-
-        this.getConfigFromState = this.getConfigFromState.bind(this);
-
-        this.renderSettings = this.renderSettings.bind(this);
-
-        this.getSampleErrorMsg = this.getSampleErrorMsg.bind(this);
-
-        this.handlePasswordLengthChange = this.handlePasswordLengthChange.bind(this);
-        this.handleCheckboxChange = this.handleCheckboxChange.bind(this);
 
         this.state = Object.assign(this.state, {
             passwordMinimumLength: props.config.PasswordSettings.MinimumLength,
@@ -35,6 +27,22 @@ export default class PasswordSettings extends AdminSettings {
         });
 
         // Update sample message from config settings
+        t('user.settings.security.passwordErrorLowercase');
+        t('user.settings.security.passwordErrorLowercaseUppercase');
+        t('user.settings.security.passwordErrorLowercaseUppercaseNumber');
+        t('user.settings.security.passwordErrorLowercaseUppercaseNumberSymbol');
+        t('user.settings.security.passwordErrorLowercaseUppercaseSymbol');
+        t('user.settings.security.passwordErrorLowercaseNumber');
+        t('user.settings.security.passwordErrorLowercaseNumberSymbol');
+        t('user.settings.security.passwordErrorLowercaseSymbol');
+        t('user.settings.security.passwordErrorUppercase');
+        t('user.settings.security.passwordErrorUppercaseNumber');
+        t('user.settings.security.passwordErrorUppercaseNumberSymbol');
+        t('user.settings.security.passwordErrorUppercaseSymbol');
+        t('user.settings.security.passwordErrorNumber');
+        t('user.settings.security.passwordErrorNumberSymbol');
+        t('user.settings.security.passwordErrorSymbol');
+
         let sampleErrorMsgId = 'user.settings.security.passwordError';
         if (props.config.PasswordSettings.Lowercase) {
             sampleErrorMsgId += 'Lowercase';
@@ -60,7 +68,7 @@ export default class PasswordSettings extends AdminSettings {
         );
     }
 
-    getConfigFromState(config) {
+    getConfigFromState = (config) => {
         config.PasswordSettings.MinimumLength = this.parseIntNonZero(this.state.passwordMinimumLength, Constants.MIN_PASSWORD_LENGTH);
         config.PasswordSettings.Lowercase = this.refs.lowercase.checked;
         config.PasswordSettings.Uppercase = this.refs.uppercase.checked;
@@ -83,7 +91,7 @@ export default class PasswordSettings extends AdminSettings {
         };
     }
 
-    getSampleErrorMsg(minLength) {
+    getSampleErrorMsg = (minLength) => {
         if (this.props.config.PasswordSettings.MinimumLength > Constants.MAX_PASSWORD_LENGTH || this.props.config.PasswordSettings.MinimumLength < Constants.MIN_PASSWORD_LENGTH) {
             return (
                 <FormattedMessage
@@ -117,12 +125,12 @@ export default class PasswordSettings extends AdminSettings {
         );
     }
 
-    handlePasswordLengthChange(id, value) {
+    handlePasswordLengthChange = (id, value) => {
         this.sampleErrorMsg = this.getSampleErrorMsg(value);
         this.handleChange(id, value);
     }
 
-    handleCheckboxChange(id, value) {
+    handleCheckboxChange = (id, value) => {
         this.sampleErrorMsg = this.getSampleErrorMsg(this.state.passwordMinimumLength);
         this.handleChange(id, value);
     }
@@ -136,7 +144,7 @@ export default class PasswordSettings extends AdminSettings {
         );
     }
 
-    renderSettings() {
+    renderSettings = () => {
         return (
             <SettingsGroup>
                 <div>

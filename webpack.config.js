@@ -2,6 +2,7 @@
 // See LICENSE.txt for license information.
 
 const childProcess = require('child_process');
+
 const path = require('path');
 const url = require('url');
 
@@ -11,34 +12,23 @@ const nodeExternals = require('webpack-node-externals');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const WebpackPwaManifest = require('webpack-pwa-manifest');
+const LiveReloadPlugin = require('webpack-livereload-plugin');
 
 const NPM_TARGET = process.env.npm_lifecycle_event; //eslint-disable-line no-process-env
 
-var DEV = false;
-var FULLMAP = false;
-var TEST = false;
-if (NPM_TARGET === 'run' || NPM_TARGET === 'run-fullmap') {
-    DEV = true;
-    if (NPM_TARGET === 'run-fullmap') {
-        FULLMAP = true;
-    }
-}
+const targetIsRun = NPM_TARGET === 'run';
+const targetIsTest = NPM_TARGET === 'test';
+const targetIsStats = NPM_TARGET === 'stats';
+const targetIsDevServer = NPM_TARGET === 'dev-server';
 
-if (NPM_TARGET === 'test') {
-    DEV = false;
-    TEST = true;
-}
-
-if (NPM_TARGET === 'stats') {
-    DEV = true;
-    TEST = false;
-    FULLMAP = true;
-}
+const DEV = targetIsRun || targetIsStats || targetIsDevServer;
 
 const STANDARD_EXCLUDE = [
     path.join(__dirname, 'node_modules'),
-    path.join(__dirname, 'non_npm_dependencies'),
 ];
+
+// react-hot-loader requires eval
+const CSP_UNSAFE_EVAL_IF_DEV = targetIsDevServer ? ' \'unsafe-eval\'' : '';
 
 var MYSTATS = {
 
@@ -143,32 +133,26 @@ if (DEV) {
 }
 
 var config = {
-    entry: ['babel-polyfill', 'whatwg-fetch', 'url-search-params-polyfill', './root.jsx', 'root.html'],
+    entry: ['./root.jsx', 'root.html'],
     output: {
         path: path.join(__dirname, 'dist'),
         publicPath,
         filename: '[name].[hash].js',
-        chunkFilename: '[name].[chunkhash].js',
+        chunkFilename: '[name].[contenthash].js',
     },
     module: {
         rules: [
             {
-                test: /\.(js|jsx)?$/,
+                test: /\.(js|jsx|ts|tsx)?$/,
                 exclude: STANDARD_EXCLUDE,
-                use: [
-                    {
-                        loader: 'babel-loader',
-                        options: {
-                            presets: [
-                                'react',
-                                ['es2015', {modules: false}],
-                                'stage-0',
-                            ],
-                            plugins: ['transform-runtime'],
-                            cacheDirectory: true,
-                        },
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        cacheDirectory: true,
+
+                        // Babel configuration is in .babelrc because jest requires it to be there.
                     },
-                ],
+                },
             },
             {
                 type: 'javascript/auto',
@@ -186,14 +170,16 @@ var config = {
             {
                 test: /\.scss$/,
                 use: [
-                    MiniCssExtractPlugin.loader,
+                    DEV ? 'style-loader' : MiniCssExtractPlugin.loader,
                     {
                         loader: 'css-loader',
                     },
                     {
                         loader: 'sass-loader',
                         options: {
-                            includePaths: ['node_modules/compass-mixins/lib'],
+                            sassOptions: {
+                                includePaths: ['node_modules/compass-mixins/lib', 'sass'],
+                            },
                         },
                     },
                 ],
@@ -201,7 +187,7 @@ var config = {
             {
                 test: /\.css$/,
                 use: [
-                    MiniCssExtractPlugin.loader,
+                    DEV ? 'style-loader' : MiniCssExtractPlugin.loader,
                     {
                         loader: 'css-loader',
                     },
@@ -238,14 +224,13 @@ var config = {
     resolve: {
         modules: [
             'node_modules',
-            'non_npm_dependencies',
             path.resolve(__dirname),
         ],
         alias: {
             jquery: 'jquery/src/jquery',
             superagent: 'node_modules/superagent/lib/client',
         },
-        extensions: ['.js', '.jsx'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx'],
     },
     performance: {
         hints: 'warning',
@@ -257,10 +242,6 @@ var config = {
             $: 'jquery',
             jQuery: 'jquery',
         }),
-        new webpack.LoaderOptionsPlugin({
-            minimize: !DEV,
-            debug: false,
-        }),
         new webpack.DefinePlugin({
             COMMIT_HASH: JSON.stringify(childProcess.execSync('git rev-parse HEAD || echo dev').toString()),
         }),
@@ -268,57 +249,17 @@ var config = {
             filename: '[name].[contentHash].css',
             chunkFilename: '[name].[contentHash].css',
         }),
-    ],
-};
-
-if (NPM_TARGET !== 'stats') {
-    config.stats = MYSTATS;
-}
-
-// Development mode configuration
-if (DEV) {
-    config.mode = 'development';
-    if (FULLMAP) {
-        config.devtool = 'source-map';
-    } else {
-        config.devtool = 'cheap-module-eval-source-map';
-    }
-}
-
-// Production mode configuration
-if (!DEV) {
-    config.mode = 'production';
-    config.devtool = 'source-map';
-    config.plugins.push(
-        new webpack.optimize.OccurrenceOrderPlugin(true)
-    );
-}
-
-const env = {};
-if (DEV) {
-    env.PUBLIC_PATH = JSON.stringify(publicPath);
-} else {
-    env.NODE_ENV = JSON.stringify('production');
-}
-config.plugins.push(new webpack.DefinePlugin({
-    'process.env': env,
-}));
-
-// Test mode configuration
-if (TEST) {
-    config.entry = ['babel-polyfill', './root.jsx'];
-    config.target = 'node';
-    config.externals = [nodeExternals()];
-} else {
-    // For some reason these break mocha. So they go here.
-    config.plugins.push(
         new HtmlWebpackPlugin({
             filename: 'root.html',
             inject: 'head',
             template: 'root.html',
-        })
-    );
-    config.plugins.push(
+            meta: {
+                csp: {
+                    'http-equiv': 'Content-Security-Policy',
+                    content: 'script-src \'self\' cdn.segment.com/analytics.js/' + CSP_UNSAFE_EVAL_IF_DEV,
+                },
+            },
+        }),
         new CopyWebpackPlugin([
             {from: 'images/emoji', to: 'emoji'},
             {from: 'images/img_trans.gif', to: 'images'},
@@ -327,76 +268,179 @@ if (TEST) {
             {from: 'images/favicon', to: 'images/favicon'},
             {from: 'images/appIcons.png', to: 'images'},
             {from: 'images/warning.png', to: 'images'},
-        ])
-    );
+            {from: 'images/logo-email.png', to: 'images'},
+            {from: 'images/browser-icons', to: 'images/browser-icons'},
+        ]),
+
+        // Generate manifest.json, honouring any configured publicPath. This also handles injecting
+        // <link rel="apple-touch-icon" ... /> and <meta name="apple-*" ... /> tags into root.html.
+        new WebpackPwaManifest({
+            name: 'Mattermost',
+            short_name: 'Mattermost',
+            start_url: '..',
+            description: 'Mattermost is an open source, self-hosted Slack-alternative',
+            background_color: '#ffffff',
+            inject: true,
+            ios: true,
+            fingerprints: false,
+            orientation: 'any',
+            filename: 'manifest.json',
+            icons: [{
+                src: path.resolve('images/favicon/android-chrome-192x192.png'),
+                type: 'image/png',
+                sizes: '192x192',
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-120x120.png'),
+                type: 'image/png',
+                sizes: '120x120',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-144x144.png'),
+                type: 'image/png',
+                sizes: '144x144',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-152x152.png'),
+                type: 'image/png',
+                sizes: '152x152',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-57x57.png'),
+                type: 'image/png',
+                sizes: '57x57',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-60x60.png'),
+                type: 'image/png',
+                sizes: '60x60',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-72x72.png'),
+                type: 'image/png',
+                sizes: '72x72',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/apple-touch-icon-76x76.png'),
+                type: 'image/png',
+                sizes: '76x76',
+                ios: true,
+            }, {
+                src: path.resolve('images/favicon/favicon-16x16.png'),
+                type: 'image/png',
+                sizes: '16x16',
+            }, {
+                src: path.resolve('images/favicon/favicon-32x32.png'),
+                type: 'image/png',
+                sizes: '32x32',
+            }, {
+                src: path.resolve('images/favicon/favicon-96x96.png'),
+                type: 'image/png',
+                sizes: '96x96',
+            }],
+        }),
+    ],
+};
+
+if (!targetIsStats) {
+    config.stats = MYSTATS;
 }
 
-// Generate manifest.json, honouring any configured publicPath. This also handles injecting
-// <link rel="apple-touch-icon" ... /> and <meta name="apple-*" ... /> tags into root.html.
-config.plugins.push(
-    new WebpackPwaManifest({
-        name: 'Mattermost',
-        short_name: 'Mattermost',
-        description: 'Mattermost is an open source, self-hosted Slack-alternative',
-        background_color: '#ffffff',
-        inject: true,
-        ios: true,
-        fingerprints: false,
-        orientation: 'any',
-        filename: 'manifest.json',
-        icons: [{
-            src: path.resolve('images/favicon/android-chrome-192x192.png'),
-            type: 'image/png',
-            sizes: '192x192',
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-120x120.png'),
-            type: 'image/png',
-            sizes: '120x120',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-144x144.png'),
-            type: 'image/png',
-            sizes: '144x144',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-152x152.png'),
-            type: 'image/png',
-            sizes: '152x152',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-57x57.png'),
-            type: 'image/png',
-            sizes: '57x57',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-60x60.png'),
-            type: 'image/png',
-            sizes: '60x60',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-72x72.png'),
-            type: 'image/png',
-            sizes: '72x72',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/apple-touch-icon-76x76.png'),
-            type: 'image/png',
-            sizes: '76x76',
-            ios: true,
-        }, {
-            src: path.resolve('images/favicon/favicon-16x16.png'),
-            type: 'image/png',
-            sizes: '16x16',
-        }, {
-            src: path.resolve('images/favicon/favicon-32x32.png'),
-            type: 'image/png',
-            sizes: '32x32',
-        }, {
-            src: path.resolve('images/favicon/favicon-96x96.png'),
-            type: 'image/png',
-            sizes: '96x96',
-        }],
-    })
-);
+// Development mode configuration
+if (DEV) {
+    config.mode = 'development';
+    config.devtool = 'source-map';
+}
+
+// Production mode configuration
+if (!DEV) {
+    config.mode = 'production';
+    config.devtool = 'source-map';
+}
+
+const env = {};
+if (DEV) {
+    env.PUBLIC_PATH = JSON.stringify(publicPath);
+    if (process.env.MM_LIVE_RELOAD) { //eslint-disable-line no-process-env
+        config.plugins.push(new LiveReloadPlugin());
+    }
+} else {
+    env.NODE_ENV = JSON.stringify('production');
+}
+
+config.plugins.push(new webpack.DefinePlugin({
+    'process.env': env,
+}));
+
+// Test mode configuration
+if (targetIsTest) {
+    config.entry = ['./root.jsx'];
+    config.target = 'node';
+    config.externals = [nodeExternals()];
+}
+
+if (targetIsDevServer) {
+    config = {
+        ...config,
+        devtool: 'cheap-module-eval-source-map',
+        devServer: {
+            hot: true,
+            injectHot: true,
+            liveReload: false,
+            overlay: true,
+            proxy: [{
+                context: () => true,
+                bypass(req) {
+                    if (req.url.indexOf('/api') === 0 ||
+                        req.url.indexOf('/plugins') === 0 ||
+                        req.url.indexOf('/static/plugins/') === 0 ||
+                        req.url.indexOf('/sockjs-node/') !== -1) {
+                        return null; // send through proxy to the server
+                    }
+                    if (req.url.indexOf('/static/') === 0) {
+                        return path; // return the webpacked asset
+                    }
+
+                    // redirect (root, team routes, etc)
+                    return '/static/root.html';
+                },
+                logLevel: 'silent',
+                target: 'http://localhost:8065',
+                xfwd: true,
+                ws: true,
+            }],
+            port: 9005,
+            watchContentBase: true,
+            writeToDisk: false,
+        },
+        performance: false,
+        optimization: {
+            ...config.optimization,
+            splitChunks: false,
+        },
+        resolve: {
+            ...config.resolve,
+            alias: {
+                ...config.resolve.alias,
+                'react-dom': '@hot-loader/react-dom',
+            },
+        },
+    };
+}
+
+// Export PRODUCTION_PERF_DEBUG=1 when running webpack to enable support for the react profiler
+// even while generating production code. (Performance testing development code is typically
+// not helpful.)
+// See https://reactjs.org/blog/2018/09/10/introducing-the-react-profiler.html and
+// https://gist.github.com/bvaughn/25e6233aeb1b4f0cdb8d8366e54a3977
+if (process.env.PRODUCTION_PERF_DEBUG) { //eslint-disable-line no-process-env
+    console.log('Enabling production performance debug settings'); //eslint-disable-line no-console
+    config.resolve.alias['react-dom'] = 'react-dom/profiling';
+    config.resolve.alias['schedule/tracing'] = 'schedule/tracing-profiling';
+    config.optimization = {
+
+        // Skip minification to make the profiled data more useful.
+        minimize: false,
+    };
+}
 
 module.exports = config;

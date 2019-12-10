@@ -8,10 +8,11 @@ import {FormattedMessage} from 'react-intl';
 import {browserHistory} from 'utils/browser_history';
 import ConfirmModal from 'components/confirm_modal.jsx';
 import AbstractOutgoingWebhook from 'components/integrations/abstract_outgoing_webhook.jsx';
-import LoadingScreen from 'components/loading_screen.jsx';
+import LoadingScreen from 'components/loading_screen';
 
 const HEADER = {id: 'integrations.edit', defaultMessage: 'Edit'};
 const FOOTER = {id: 'update_outgoing_webhook.update', defaultMessage: 'Update'};
+const LOADING = {id: 'update_outgoing_webhook.updating', defaultMessage: 'Updating...'};
 
 export default class EditOutgoingWebhook extends React.PureComponent {
     static propTypes = {
@@ -53,6 +54,16 @@ export default class EditOutgoingWebhook extends React.PureComponent {
         * Whether or not outgoing webhooks are enabled.
         */
         enableOutgoingWebhooks: PropTypes.bool,
+
+        /**
+         * Whether to allow configuration of the default post username.
+         */
+        enablePostUsernameOverride: PropTypes.bool.isRequired,
+
+        /**
+         * Whether to allow configuration of the default post icon.
+         */
+        enablePostIconOverride: PropTypes.bool.isRequired,
     }
 
     constructor(props) {
@@ -164,10 +175,13 @@ export default class EditOutgoingWebhook extends React.PureComponent {
                 team={this.props.team}
                 header={HEADER}
                 footer={FOOTER}
+                loading={LOADING}
                 renderExtra={this.renderExtra()}
                 action={this.editOutgoingHook}
                 serverError={this.state.serverError}
                 initialHook={this.props.hook}
+                enablePostUsernameOverride={this.props.enablePostUsernameOverride}
+                enablePostIconOverride={this.props.enablePostIconOverride}
             />
         );
     }

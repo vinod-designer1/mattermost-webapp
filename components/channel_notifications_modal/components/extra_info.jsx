@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
-import {NotificationSections} from 'utils/constants.jsx';
+import {NotificationSections} from 'utils/constants';
 
 export default function ExtraInfo({section}) {
     switch (section) {
@@ -33,6 +33,15 @@ export default function ExtraInfo({section}) {
                 <FormattedMessage
                     id='channel_notifications.muteChannel.help'
                     defaultMessage='Muting turns off desktop, email and push notifications for this channel. The channel will not be marked as unread unless you are mentioned.'
+                />
+            </span>
+        );
+    case NotificationSections.IGNORE_CHANNEL_MENTIONS:
+        return (
+            <span>
+                <FormattedMessage
+                    id='channel_notifications.ignoreChannelMentions.help'
+                    defaultMessage='When enabled, @channel, @here and @all will not trigger mentions or mention notifications in this channel.'
                 />
             </span>
         );

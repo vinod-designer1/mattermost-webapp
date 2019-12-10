@@ -4,40 +4,43 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {Modal, OverlayTrigger, Tooltip} from 'react-bootstrap';
-import {defineMessages, FormattedMessage, injectIntl, intlShape} from 'react-intl';
+import {defineMessages, FormattedMessage, injectIntl} from 'react-intl';
 
+import LocalizedInput from 'components/localized_input/localized_input';
 import {browserHistory} from 'utils/browser_history';
 import Constants from 'utils/constants.jsx';
-import {cleanUpUrlable, getShortenedURL} from 'utils/url.jsx';
+import {intlShape} from 'utils/react_intl';
+import {cleanUpUrlable, getShortenedURL} from 'utils/url';
 import * as Utils from 'utils/utils.jsx';
+import {t} from 'utils/i18n';
 
 const holders = defineMessages({
     required: {
-        id: 'rename_channel.required',
+        id: t('rename_channel.required'),
         defaultMessage: 'This field is required',
     },
     maxLength: {
-        id: 'rename_channel.maxLength',
+        id: t('rename_channel.maxLength'),
         defaultMessage: 'This field must be less than {maxLength, number} characters',
     },
     lowercase: {
-        id: 'rename_channel.lowercase',
+        id: t('rename_channel.lowercase'),
         defaultMessage: 'Must be lowercase alphanumeric characters',
     },
     url: {
-        id: 'rename_channel.url',
+        id: t('rename_channel.url'),
         defaultMessage: 'URL',
     },
     defaultError: {
-        id: 'rename_channel.defaultError',
+        id: t('rename_channel.defaultError'),
         defaultMessage: ' - Cannot be changed for the default channel',
     },
     displayNameHolder: {
-        id: 'rename_channel.displayNameHolder',
+        id: t('rename_channel.displayNameHolder'),
         defaultMessage: 'Enter display name',
     },
     handleHolder: {
-        id: 'rename_channel.handleHolder',
+        id: t('rename_channel.handleHolder'),
         defaultMessage: 'lowercase alphanumeric characters',
     },
 });
@@ -49,11 +52,6 @@ export class RenameChannelModal extends React.PureComponent {
          * react-intl helper object
          */
         intl: intlShape.isRequired,
-
-        /**
-         * Determines whether this modal should be shown or not
-         */
-        show: PropTypes.bool.isRequired,
 
         /**
          * Function that is called when modal is hidden
@@ -81,9 +79,9 @@ export class RenameChannelModal extends React.PureComponent {
         actions: PropTypes.shape({
 
             /*
-             * Action creator to update current channel
+             * Action creator to patch current channel
              */
-            updateChannel: PropTypes.func.isRequired,
+            patchChannel: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -97,16 +95,8 @@ export class RenameChannelModal extends React.PureComponent {
             nameError: '',
             displayNameError: '',
             invalid: false,
+            show: true,
         };
-    }
-
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (!Utils.areObjectsEqual(nextProps.channel, this.props.channel)) {
-            this.setState({
-                displayName: nextProps.channel.display_name,
-                channelName: nextProps.channel.name,
-            });
-        }
     }
 
     setError = (err) => {
@@ -126,13 +116,12 @@ export class RenameChannelModal extends React.PureComponent {
             e.preventDefault();
         }
 
-        this.props.onHide();
-
         this.setState({
             serverError: '',
             nameError: '',
             displayNameError: '',
             invalid: false,
+            show: false,
         });
     }
 
@@ -146,7 +135,7 @@ export class RenameChannelModal extends React.PureComponent {
         const oldDisplayName = channel.display_name;
         const state = {serverError: ''};
         const {formatMessage} = this.props.intl;
-        const {actions: {updateChannel}} = this.props;
+        const {actions: {patchChannel}} = this.props;
 
         channel.display_name = this.state.displayName.trim();
         if (!channel.display_name) {
@@ -197,7 +186,7 @@ export class RenameChannelModal extends React.PureComponent {
             return;
         }
 
-        const {data, error} = await updateChannel(channel);
+        const {data, error} = await patchChannel(channel.id, channel);
 
         if (data) {
             this.onSaveSuccess();
@@ -258,7 +247,7 @@ export class RenameChannelModal extends React.PureComponent {
         let urlInputLabel = formatMessage(holders.url);
         const handleInputClass = 'form-control';
         let readOnlyHandleInput = false;
-        if (this.state.channelName === Constants.DEFAULT_CHANNEL) {
+        if (this.props.channel.name === Constants.DEFAULT_CHANNEL) {
             urlInputLabel += formatMessage(holders.defaultError);
             readOnlyHandleInput = true;
         }
@@ -271,12 +260,19 @@ export class RenameChannelModal extends React.PureComponent {
 
         return (
             <Modal
-                show={this.props.show}
-                onEntering={this.handleEntering}
+                dialogClassName='a11y__modal'
+                show={this.state.show}
                 onHide={this.handleCancel}
+                onEntering={this.handleEntering}
+                onExited={this.props.onHide}
+                role='dialog'
+                aria-labelledby='renameChannelModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='renameChannelModalLabel'
+                    >
                         <FormattedMessage
                             id='rename_channel.title'
                             defaultMessage='Rename Channel'
@@ -292,13 +288,13 @@ export class RenameChannelModal extends React.PureComponent {
                                     defaultMessage='Display Name'
                                 />
                             </label>
-                            <input
+                            <LocalizedInput
                                 onChange={this.onDisplayNameChange}
                                 type='text'
                                 ref={this.getTextbox}
                                 id='display_name'
                                 className='form-control'
-                                placeholder={formatMessage(holders.displayNameHolder)}
+                                placeholder={holders.displayNameHolder}
                                 value={this.state.displayName}
                                 maxLength={Constants.MAX_CHANNELNAME_LENGTH}
                             />
@@ -309,19 +305,18 @@ export class RenameChannelModal extends React.PureComponent {
 
                             <div className='input-group input-group--limit'>
                                 <OverlayTrigger
-                                    trigger={['hover', 'focus']}
                                     delayShow={Constants.OVERLAY_TIME_DELAY}
                                     placement='top'
                                     overlay={urlTooltip}
                                 >
                                     <span className='input-group-addon'>{shortUrl}</span>
                                 </OverlayTrigger>
-                                <input
+                                <LocalizedInput
                                     onChange={this.onNameChange}
                                     type='text'
                                     className={handleInputClass}
                                     id='channel_name'
-                                    placeholder={formatMessage(holders.handleHolder)}
+                                    placeholder={holders.handleHolder}
                                     value={this.state.channelName}
                                     maxLength={Constants.MAX_CHANNELNAME_LENGTH}
                                     readOnly={readOnlyHandleInput}
@@ -334,7 +329,7 @@ export class RenameChannelModal extends React.PureComponent {
                     <Modal.Footer>
                         <button
                             type='button'
-                            className='btn btn-default'
+                            className='btn btn-link'
                             onClick={this.handleCancel}
                         >
                             <FormattedMessage

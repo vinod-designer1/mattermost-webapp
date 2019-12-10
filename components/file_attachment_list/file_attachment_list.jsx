@@ -4,7 +4,9 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import Constants, {FileTypes} from 'utils/constants.jsx';
+import {sortFileInfos} from 'mattermost-redux/utils/file_utils';
+
+import {FileTypes} from 'utils/constants';
 import {getFileType} from 'utils/utils';
 
 import FileAttachment from 'components/file_attachment';
@@ -25,41 +27,23 @@ export default class FileAttachmentList extends React.Component {
         fileCount: PropTypes.number.isRequired,
 
         /*
-         * Array of metadata for each file attached to the post
+         * Sorted array of metadata for each file attached to the post
          */
         fileInfos: PropTypes.arrayOf(PropTypes.object),
 
-        /*
-         * Set to render compactly
-         */
         compactDisplay: PropTypes.bool,
-
+        enableSVGs: PropTypes.bool,
         isEmbedVisible: PropTypes.bool,
-
-        actions: PropTypes.shape({
-
-            /*
-             * Function to get file metadata for a post
-             */
-            getMissingFilesForPost: PropTypes.func.isRequired,
-        }).isRequired,
+        locale: PropTypes.string.isRequired,
     }
 
     constructor(props) {
         super(props);
 
-        this.handleImageClick = this.handleImageClick.bind(this);
-
         this.state = {showPreviewModal: false, startImgIndex: 0};
     }
 
-    componentDidMount() {
-        if (this.props.post.file_ids || this.props.post.filenames) {
-            this.props.actions.getMissingFilesForPost(this.props.post.id);
-        }
-    }
-
-    handleImageClick(indexClicked) {
+    handleImageClick = (indexClicked) => {
         this.setState({showPreviewModal: true, startImgIndex: indexClicked});
     }
 
@@ -68,18 +52,24 @@ export default class FileAttachmentList extends React.Component {
     }
 
     render() {
-        const {fileInfos, fileCount, compactDisplay} = this.props;
+        const {
+            compactDisplay,
+            enableSVGs,
+            fileInfos,
+            fileCount,
+            locale,
+        } = this.props;
 
         if (compactDisplay === false) {
             if (fileInfos && fileInfos.length === 1) {
                 const fileType = getFileType(fileInfos[0].extension);
 
-                if (fileType === FileTypes.IMAGE || fileType === FileTypes.SVG) {
+                if (fileType === FileTypes.IMAGE || (fileType === FileTypes.SVG && enableSVGs)) {
                     return (
                         <SingleImageView
                             fileInfo={fileInfos[0]}
                             isEmbedVisible={this.props.isEmbedVisible}
-                            post={this.props.post}
+                            postId={this.props.post.id}
                         />
                     );
                 }
@@ -90,14 +80,11 @@ export default class FileAttachmentList extends React.Component {
             }
         }
 
+        const sortedFileInfos = sortFileInfos(fileInfos, locale);
         const postFiles = [];
-        let sortedFileInfos = [];
-
-        if (fileInfos && fileInfos.length > 0) {
-            sortedFileInfos = fileInfos.sort((a, b) => a.create_at - b.create_at);
-            for (let i = 0; i < Math.min(sortedFileInfos.length, Constants.MAX_DISPLAY_FILES); i++) {
+        if (sortedFileInfos && sortedFileInfos.length > 0) {
+            for (let i = 0; i < sortedFileInfos.length; i++) {
                 const fileInfo = sortedFileInfos[i];
-
                 postFiles.push(
                     <FileAttachment
                         key={fileInfo.id}
@@ -109,7 +96,7 @@ export default class FileAttachmentList extends React.Component {
                 );
             }
         } else if (fileCount > 0) {
-            for (let i = 0; i < Math.min(fileCount, Constants.MAX_DISPLAY_FILES); i++) {
+            for (let i = 0; i < fileCount; i++) {
                 // Add a placeholder to avoid pop-in once we get the file infos for this post
                 postFiles.push(
                     <div
@@ -130,6 +117,7 @@ export default class FileAttachmentList extends React.Component {
                     onModalDismissed={this.hidePreviewModal}
                     startIndex={this.state.startImgIndex}
                     fileInfos={sortedFileInfos}
+                    postId={this.props.post.id}
                 />
             </React.Fragment>
         );

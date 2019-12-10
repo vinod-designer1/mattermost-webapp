@@ -6,9 +6,10 @@ import React from 'react';
 import {FormattedDate, FormattedMessage, FormattedTime} from 'react-intl';
 import {Client4} from 'mattermost-redux/client';
 
-import UserStore from 'stores/user_store.jsx';
-import * as Utils from 'utils/utils.jsx';
-import LoadingScreen from 'components/loading_screen.jsx';
+import LoadingScreen from 'components/loading_screen';
+import ReloadIcon from 'components/widgets/icons/fa_reload_icon';
+import LocalizedInput from 'components/localized_input/localized_input';
+import {t} from 'utils/i18n.jsx';
 
 export default class ComplianceReports extends React.PureComponent {
     static propTypes = {
@@ -27,6 +28,7 @@ export default class ComplianceReports extends React.PureComponent {
          * Array of reports to render
          */
         reports: PropTypes.arrayOf(PropTypes.object).isRequired,
+        users: PropTypes.object.isRequired,
 
         /*
          * Error message to display
@@ -53,6 +55,12 @@ export default class ComplianceReports extends React.PureComponent {
         this.state = {
             loadingReports: true,
         };
+
+        this.descInput = React.createRef();
+        this.emailsInput = React.createRef();
+        this.fromInput = React.createRef();
+        this.keywordsInput = React.createRef();
+        this.toInput = React.createRef();
     }
 
     componentDidMount() {
@@ -79,22 +87,23 @@ export default class ComplianceReports extends React.PureComponent {
         this.setState({runningReport: true});
 
         const job = {};
-        job.desc = this.refs.desc.value;
-        job.emails = this.refs.emails.value;
-        job.keywords = this.refs.keywords.value;
-        job.start_at = Date.parse(this.refs.from.value);
-        job.end_at = Date.parse(this.refs.to.value);
+        job.desc = this.descInput.current.value;
+        job.emails = this.emailsInput.current.value;
+        job.keywords = this.keywordsInput.current.value;
+        job.start_at = Date.parse(this.fromInput.current.value);
+        job.end_at = Date.parse(this.toInput.current.value);
 
         this.props.actions.createComplianceReport(job).then(
             ({data}) => {
                 if (data) {
-                    this.refs.emails.value = '';
-                    this.refs.keywords.value = '';
-                    this.refs.desc.value = '';
-                    this.refs.from.value = '';
-                    this.refs.to.value = '';
+                    this.emailsInput.current.value = '';
+                    this.keywordsInput.current.value = '';
+                    this.descInput.current.value = '';
+                    this.fromInput.current.value = '';
+                    this.toInput.current.value = '';
                 }
                 this.setState({runningReport: false});
+                this.props.actions.getComplianceReports();
             }
         );
     }
@@ -158,7 +167,6 @@ export default class ComplianceReports extends React.PureComponent {
                             />{' '}{report.keywords}
                         </span>);
                 }
-
                 let download = '';
                 let status = '';
                 if (report.status === 'finished') {
@@ -172,25 +180,44 @@ export default class ComplianceReports extends React.PureComponent {
                     );
 
                     status = (
-                        <span style={style.greenStatus}>{report.status}</span>
+                        <span className='status-icon-success'>
+                            <FormattedMessage
+                                id='admin.compliance_table.success'
+                                defaultMessage='Success'
+                            />
+                        </span>
+                    );
+                } else if (report.status === 'running') {
+                    status = (
+                        <span className='status-icon-warning'>
+                            <FormattedMessage
+                                id='admin.compliance_table.pending'
+                                defaultMessage='Pending'
+                            />
+                        </span>
                     );
                 } else if (report.status === 'failed') {
                     status = (
-                        <span style={style.redStatus}>{report.status}</span>
+                        <span className='status-icon-error'>
+                            <FormattedMessage
+                                id='admin.compliance_table.failed'
+                                defaultMessage='Failed'
+                            />
+                        </span>
                     );
                 }
 
                 let user = report.user_id;
-                const profile = UserStore.getProfile(report.user_id);
+                const profile = this.props.users[report.user_id];
                 if (profile) {
                     user = profile.email;
                 }
 
                 list[i] = (
                     <tr key={report.id}>
+                        <td>{status}</td>
                         <td style={style.dataCell}>{download}</td>
                         <td>{this.getDateTime(report.create_at)}</td>
-                        <td>{status}</td>
                         <td>{report.count}</td>
                         <td>{report.type}</td>
                         <td style={style.dataCell}>{report.desc}</td>
@@ -205,17 +232,22 @@ export default class ComplianceReports extends React.PureComponent {
                     <table className='table'>
                         <thead>
                             <tr>
-                                <th/>
-                                <th>
-                                    <FormattedMessage
-                                        id='admin.compliance_table.timestamp'
-                                        defaultMessage='Timestamp'
-                                    />
-                                </th>
                                 <th>
                                     <FormattedMessage
                                         id='admin.compliance_table.status'
                                         defaultMessage='Status'
+                                    />
+                                </th>
+                                <th>
+                                    <FormattedMessage
+                                        id='admin.compliance_table.files'
+                                        defaultMessage='Files'
+                                    />
+                                </th>
+                                <th>
+                                    <FormattedMessage
+                                        id='admin.compliance_table.timestamp'
+                                        defaultMessage='Timestamp'
                                     />
                                 </th>
                                 <th>
@@ -272,12 +304,12 @@ export default class ComplianceReports extends React.PureComponent {
 
         return (
             <div className='panel compliance-panel'>
-                <h3>
+                <h4>
                     <FormattedMessage
                         id='admin.compliance_reports.title'
                         defaultMessage='Compliance Reports'
                     />
-                </h3>
+                </h4>
                 <div className='row'>
                     <div className='col-sm-6 col-md-4 form-group'>
                         <label>
@@ -286,12 +318,12 @@ export default class ComplianceReports extends React.PureComponent {
                                 defaultMessage='Job Name:'
                             />
                         </label>
-                        <input
+                        <LocalizedInput
                             type='text'
                             className='form-control'
                             id='desc'
-                            ref='desc'
-                            placeholder={Utils.localizeMessage('admin.compliance_reports.desc_placeholder', 'E.g. "Audit 445 for HR"')}
+                            ref={this.descInput}
+                            placeholder={{id: t('admin.compliance_reports.desc_placeholder'), defaultMessage: 'E.g. "Audit 445 for HR"'}}
                         />
                     </div>
                     <div className='col-sm-3 col-md-2 form-group'>
@@ -301,12 +333,12 @@ export default class ComplianceReports extends React.PureComponent {
                                 defaultMessage='From:'
                             />
                         </label>
-                        <input
+                        <LocalizedInput
                             type='text'
                             className='form-control'
                             id='from'
-                            ref='from'
-                            placeholder={Utils.localizeMessage('admin.compliance_reports.from_placeholder', 'E.g. "2016-03-11"')}
+                            ref={this.fromInput}
+                            placeholder={{id: t('admin.compliance_reports.from_placeholder'), defaultMessage: 'E.g. "2016-03-11"'}}
                         />
                     </div>
                     <div className='col-sm-3 col-md-2 form-group'>
@@ -316,12 +348,12 @@ export default class ComplianceReports extends React.PureComponent {
                                 defaultMessage='To:'
                             />
                         </label>
-                        <input
+                        <LocalizedInput
                             type='text'
                             className='form-control'
                             id='to'
-                            ref='to'
-                            placeholder={Utils.localizeMessage('admin.compliance_reports.to_placeholder', 'E.g. "2016-03-15"')}
+                            ref={this.toInput}
+                            placeholder={{id: t('admin.compliance_reports.to_placeholder'), defaultMessage: 'E.g. "2016-03-15"'}}
                         />
                     </div>
                 </div>
@@ -333,12 +365,12 @@ export default class ComplianceReports extends React.PureComponent {
                                 defaultMessage='Emails:'
                             />
                         </label>
-                        <input
+                        <LocalizedInput
                             type='text'
                             className='form-control'
                             id='emails'
-                            ref='emails'
-                            placeholder={Utils.localizeMessage('admin.compliance_reports.emails_placeholder', 'E.g. "bill@example.com, bob@example.com"')}
+                            ref={this.emailsInput}
+                            placeholder={{id: t('admin.compliance_reports.emails_placeholder'), defaultMessage: 'E.g. "bill@example.com, bob@example.com"'}}
                         />
                     </div>
                     <div className='col-sm-6 col-md-4 form-group'>
@@ -348,12 +380,12 @@ export default class ComplianceReports extends React.PureComponent {
                                 defaultMessage='Keywords:'
                             />
                         </label>
-                        <input
+                        <LocalizedInput
                             type='text'
                             className='form-control'
                             id='keywords'
-                            ref='keywords'
-                            placeholder={Utils.localizeMessage('admin.compliance_reports.keywords_placeholder', 'E.g. "shorting stock"')}
+                            ref={this.keywordsInput}
+                            placeholder={{id: t('admin.compliance_reports.keywords_placeholder'), defaultMessage: 'E.g. "shorting stock"'}}
                         />
                     </div>
                 </div>
@@ -378,10 +410,7 @@ export default class ComplianceReports extends React.PureComponent {
                         disabled={this.state.runningReport}
                         onClick={this.reload}
                     >
-                        <i
-                            className='fa fa-refresh'
-                            title={Utils.localizeMessage('generic_icons.reload', 'Reload Icon')}
-                        />
+                        <ReloadIcon/>
                         <FormattedMessage
                             id='admin.compliance_reports.reload'
                             defaultMessage='Reload Completed Compliance Reports'

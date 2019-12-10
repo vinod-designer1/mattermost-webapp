@@ -6,13 +6,12 @@ import React from 'react';
 import {FormattedMessage} from 'react-intl';
 import {Posts} from 'mattermost-redux/constants';
 
-import * as GlobalActions from 'actions/global_actions';
-import PostMarkdown from 'components/post_markdown';
 import * as PostUtils from 'utils/post_utils';
 import * as Utils from 'utils/utils';
 
-// This must match the max-height defined in CSS for the collapsed content div
-const MAX_POST_HEIGHT = 600;
+import PostMarkdown from 'components/post_markdown';
+import Pluggable from 'plugins/pluggable';
+import ShowMore from 'components/post_view/show_more';
 
 export default class PostMessageView extends React.PureComponent {
     static propTypes = {
@@ -31,11 +30,6 @@ export default class PostMessageView extends React.PureComponent {
          * Options specific to text formatting
          */
         options: PropTypes.object,
-
-        /*
-         * Post identifiers for selenium tests
-         */
-        lastPostCount: PropTypes.number,
 
         /**
          * Set to render post body compactly
@@ -80,70 +74,23 @@ export default class PostMessageView extends React.PureComponent {
         this.state = {
             collapse: true,
             hasOverflow: false,
+            checkOverflow: 0,
         };
 
         this.imageProps = {
-            onHeightReceived: this.handleImageHeightReceived,
+            onImageLoaded: this.handleHeightReceived,
         };
     }
 
-    componentDidMount() {
-        this.checkOverflow();
-
-        window.addEventListener('resize', this.handleResize);
-    }
-
-    componentWillUpdate(nextProps) {
-        if (this.props.post.id !== nextProps.post.id) {
-            this.setState({
-                collapse: true,
+    handleHeightReceived = (height) => {
+        if (height > 0) {
+            // Increment checkOverflow to indicate change in height
+            // and recompute textContainer height at ShowMore component
+            // and see whether overflow text of show more/less is necessary or not.
+            this.setState((prevState) => {
+                return {checkOverflow: prevState.checkOverflow + 1};
             });
         }
-    }
-
-    componentDidUpdate(prevProps) {
-        if (this.props.post !== prevProps.post ||
-            this.props.isRHSOpen !== prevProps.isRHSOpen ||
-            this.props.isRHSExpanded !== prevProps.isRHSExpanded) {
-            this.checkOverflow();
-        }
-    }
-
-    componentWillUnmount() {
-        window.removeEventListener('resize', this.handleResize);
-    }
-
-    handleImageHeightReceived = () => {
-        GlobalActions.postListScrollChange();
-
-        this.checkOverflow();
-    };
-
-    handleResize = () => {
-        this.checkOverflow();
-    };
-
-    checkOverflow = () => {
-        const content = this.refs.content;
-
-        let hasOverflow = false;
-        if (content && content.scrollHeight > MAX_POST_HEIGHT) {
-            hasOverflow = true;
-        }
-
-        if (hasOverflow !== this.state.hasOverflow) {
-            this.setState({
-                hasOverflow,
-            });
-        }
-    };
-
-    toggleCollapse = () => {
-        this.setState((state) => {
-            return {
-                collapse: !state.collapse,
-            };
-        });
     };
 
     renderDeletedPost() {
@@ -163,7 +110,10 @@ export default class PostMessageView extends React.PureComponent {
         }
 
         return (
-            <span className='post-edited__indicator'>
+            <span
+                id={`postEdited_${this.props.post.id}`}
+                className='post-edited__indicator'
+            >
                 <FormattedMessage
                     id='post_message_view.edited'
                     defaultMessage='(edited)'
@@ -181,7 +131,6 @@ export default class PostMessageView extends React.PureComponent {
             compactDisplay,
             isRHS,
             theme,
-            lastPostCount,
         } = this.props;
 
         if (post.state === Posts.POST_DELETED) {
@@ -192,7 +141,8 @@ export default class PostMessageView extends React.PureComponent {
             return <span>{post.message}</span>;
         }
 
-        const postType = post.type;
+        const postType = post.props && post.props.type ? post.props.type : post.type;
+
         if (pluginPostTypes.hasOwnProperty(postType)) {
             const PluginComponent = pluginPostTypes[postType].component;
             return (
@@ -205,11 +155,6 @@ export default class PostMessageView extends React.PureComponent {
             );
         }
 
-        let postId = null;
-        if (lastPostCount >= 0) {
-            postId = Utils.createSafeId('lastPostMessageText' + lastPostCount);
-        }
-
         let message = post.message;
         const isEphemeral = Utils.isPostEphemeral(post);
         if (compactDisplay && isEphemeral) {
@@ -217,65 +162,36 @@ export default class PostMessageView extends React.PureComponent {
             message = message.concat(visibleMessage);
         }
 
-        let className = 'post-message';
-        if (this.state.collapse) {
-            className += ' post-message--collapsed';
-        } else {
-            className += ' post-message--expanded';
-        }
-
-        let overflow = null;
-        if (this.state.hasOverflow) {
-            let icon = 'fa fa-angle-up';
-            let text = Utils.localizeMessage('post_info.message.show_less', 'Show Less');
-            if (this.state.collapse) {
-                icon = 'fa fa-angle-down';
-                text = Utils.localizeMessage('post_info.message.show_more', 'Show More');
-            }
-
-            overflow = (
-                <div className='post-collapse'>
-                    <div className='post-collapse__gradient'/>
-                    <div className='post-collapse__show-more'>
-                        <div className='post-collapse__show-more-line'/>
-                        <button
-                            className='post-collapse__show-more-button'
-                            onClick={this.toggleCollapse}
-                        >
-                            <span className={icon}/>
-                            {text}
-                        </button>
-                        <div className='post-collapse__show-more-line'/>
-                    </div>
-                </div>
-            );
-
-            className += ' post-message--overflow';
-        }
+        const id = isRHS ? `rhsPostMessageText_${post.id}` : `postMessageText_${post.id}`;
 
         return (
-            <div className={className}>
+            <ShowMore
+                checkOverflow={this.state.checkOverflow}
+                text={message}
+            >
                 <div
-                    className='post-message__text-container'
-                    ref='content'
+                    aria-readonly='true'
+                    tabIndex='0'
+                    id={id}
+                    className='post-message__text'
+                    onClick={Utils.handleFormattedTextClick}
                 >
-                    <div
-                        id={postId}
-                        className='post-message__text'
-                        onClick={Utils.handleFormattedTextClick}
-                    >
-                        <PostMarkdown
-                            message={message}
-                            imageProps={this.imageProps}
-                            isRHS={isRHS}
-                            options={options}
-                            post={post}
-                        />
-                    </div>
-                    {this.renderEditedIndicator()}
+                    <PostMarkdown
+                        message={message}
+                        imageProps={this.imageProps}
+                        isRHS={isRHS}
+                        options={options}
+                        post={post}
+                        channelId={post.channel_id}
+                    />
                 </div>
-                {overflow}
-            </div>
+                {this.renderEditedIndicator()}
+                <Pluggable
+                    pluggableName='PostMessageAttachment'
+                    postId={post.id}
+                    onHeightChange={this.handleHeightReceived}
+                />
+            </ShowMore>
         );
     }
 }

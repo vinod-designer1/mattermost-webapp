@@ -4,9 +4,9 @@
 import marked from 'marked';
 
 import * as PostUtils from 'utils/post_utils.jsx';
-import * as SyntaxHighlighting from 'utils/syntax_highlighting.jsx';
+import * as SyntaxHighlighting from 'utils/syntax_highlighting';
 import * as TextFormatting from 'utils/text_formatting.jsx';
-import {getScheme, isUrlSafe} from 'utils/url.jsx';
+import {getScheme, isUrlSafe} from 'utils/url';
 
 export default class Renderer extends marked.Renderer {
     constructor(options, formattingOptions = {}) {
@@ -33,8 +33,10 @@ export default class Renderer extends marked.Renderer {
         }
 
         let className = 'post-code';
-        if (!usedLanguage) {
+        let codeClassName = 'hljs hljs-ln';
+        if (!SyntaxHighlighting.canHighlight(usedLanguage)) {
             className += ' post-code--wrap';
+            codeClassName = 'hljs';
         }
 
         let header = '';
@@ -49,7 +51,7 @@ export default class Renderer extends marked.Renderer {
         // if we have to apply syntax highlighting AND highlighting of search terms, create two copies
         // of the code block, one with syntax highlighting applied and another with invisible text, but
         // search term highlighting and overlap them
-        const content = SyntaxHighlighting.highlight(usedLanguage, code);
+        const content = SyntaxHighlighting.highlight(usedLanguage, code, true);
         let searchedContent = '';
 
         if (this.formattingOptions.searchPatterns) {
@@ -72,7 +74,7 @@ export default class Renderer extends marked.Renderer {
         return (
             '<div class="' + className + '">' +
                 header +
-                '<code class="hljs">' +
+                '<code class="' + codeClassName + '">' +
                     searchedContent +
                     content +
                 '</code>' +
@@ -143,14 +145,16 @@ export default class Renderer extends marked.Renderer {
     link(href, title, text, isUrl) {
         let outHref = href;
 
-        const scheme = getScheme(href);
-        if (!scheme) {
-            outHref = `http://${outHref}`;
-        } else if (isUrl && this.formattingOptions.autolinkedUrlSchemes) {
-            const isValidUrl = this.formattingOptions.autolinkedUrlSchemes.indexOf(scheme) !== -1;
+        if (!href.startsWith('/')) {
+            const scheme = getScheme(href);
+            if (!scheme) {
+                outHref = `http://${outHref}`;
+            } else if (isUrl && this.formattingOptions.autolinkedUrlSchemes) {
+                const isValidUrl = this.formattingOptions.autolinkedUrlSchemes.indexOf(scheme.toLowerCase()) !== -1;
 
-            if (!isValidUrl) {
-                return text;
+                if (!isValidUrl) {
+                    return text;
+                }
             }
         }
 
@@ -173,14 +177,11 @@ export default class Renderer extends marked.Renderer {
 
         // special case for team invite links, channel links, and permalinks that are inside the app
         let internalLink = false;
-        if (this.formattingOptions.siteURL) {
-            const pattern = new RegExp('^' + TextFormatting.escapeRegex(this.formattingOptions.siteURL) + '\\/(?:signup_user_complete|admin_console|[^\\/]+\\/(?:pl|channels|messages))\\/');
-
-            internalLink = pattern.test(outHref);
-        }
+        const pattern = new RegExp('^(' + TextFormatting.escapeRegex(this.formattingOptions.siteURL) + ')?\\/(?:signup_user_complete|admin_console|[^\\/]+\\/(?:pl|channels|messages))\\/');
+        internalLink = pattern.test(outHref);
 
         if (internalLink) {
-            output += ' data-link="' + outHref.substring(this.formattingOptions.siteURL.length) + '"';
+            output += ' data-link="' + outHref.replace(this.formattingOptions.siteURL, '') + '"';
         } else {
             output += ' target="_blank"';
         }
@@ -197,7 +198,17 @@ export default class Renderer extends marked.Renderer {
 
     paragraph(text) {
         if (this.formattingOptions.singleline) {
-            return `<p class="markdown__paragraph-inline">${text}</p>`;
+            let result = `<p class="markdown__paragraph-inline">${text}</p>`;
+            if (result.includes('class="markdown-inline-img"')) {
+                /*
+                ** remove p tag to allow other divs to be nested,
+                ** which avoids errors of incorrect DOM nesting (<div> inside <p>)
+                */
+                result = result.replace('<p class="markdown__paragraph-inline">',
+                    '<div className="markdown__paragraph-inline">');
+                result = result.replace('</p>', '</div>');
+            }
+            return result;
         }
 
         return super.paragraph(text);
@@ -205,6 +216,14 @@ export default class Renderer extends marked.Renderer {
 
     table(header, body) {
         return `<div class="table-responsive"><table class="markdown__table"><thead>${header}</thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    tablerow(content) {
+        return `<tr>${content}</tr>`;
+    }
+
+    tablecell(content, flags) {
+        return marked.Renderer.prototype.tablecell(content, flags).trim();
     }
 
     listitem(text, bullet) {
@@ -215,7 +234,7 @@ export default class Renderer extends marked.Renderer {
             return `<li class="list-item--task-list">${'<input type="checkbox" disabled="disabled" ' + (isTaskList[1] === ' ' ? '' : 'checked="checked" ') + '/> '}${text.replace(taskListReg, '')}</li>`;
         }
 
-        if (/^\d+.$/.test(bullet)) {
+        if ((/^\d+.$/).test(bullet)) {
             // this is a numbered list item so override the numbering
             return `<li value="${parseInt(bullet, 10)}">${text}</li>`;
         }

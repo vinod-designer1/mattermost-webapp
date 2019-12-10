@@ -2,43 +2,40 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
+import {FormattedMessage} from 'react-intl';
 import PropTypes from 'prop-types';
 
 import * as AdminActions from 'actions/admin_actions.jsx';
-import AnalyticsStore from 'stores/analytics_store.jsx';
-import Constants from 'utils/constants.jsx';
-import * as Utils from 'utils/utils.jsx';
+import Constants from 'utils/constants';
 
-import DoughnutChart from '../doughnut_chart.jsx';
-import LineChart from '../line_chart.jsx';
-import StatisticCount from '../statistic_count.jsx';
+import FormattedMarkdownMessage from 'components/formatted_markdown_message.jsx';
+
+import FormattedAdminHeader from 'components/widgets/admin_console/formatted_admin_header';
+
+import DoughnutChart from '../doughnut_chart';
+import LineChart from '../line_chart';
+import StatisticCount from '../statistic_count';
 
 import {
     formatPostsPerDayData,
     formatUsersWithPostsPerDayData,
     formatChannelDoughtnutData,
     formatPostDoughtnutData,
-} from '../format.jsx';
+    synchronizeChartData,
+} from '../format';
 
 const StatTypes = Constants.StatTypes;
 
-export default class SystemAnalytics extends React.Component {
+export default class SystemAnalytics extends React.PureComponent {
     static propTypes = {
         isLicensed: PropTypes.bool.isRequired,
-    }
-
-    constructor(props) {
-        super(props);
-
-        this.state = {stats: AnalyticsStore.getAllSystem()};
+        stats: PropTypes.object,
     }
 
     componentDidMount() {
-        AnalyticsStore.addChangeListener(this.onChange);
-
         AdminActions.getStandardAnalytics();
         AdminActions.getPostsPerDayAnalytics();
+        AdminActions.getBotPostsPerDayAnalytics();
         AdminActions.getUsersPerDayAnalytics();
 
         if (this.props.isLicensed) {
@@ -46,40 +43,27 @@ export default class SystemAnalytics extends React.Component {
         }
     }
 
-    componentWillUnmount() {
-        AnalyticsStore.removeChangeListener(this.onChange);
-    }
-
-    shouldComponentUpdate(nextProps, nextState) {
-        if (!Utils.areObjectsEqual(nextState.stats, this.state.stats)) {
-            return true;
-        }
-
-        return false;
-    }
-
-    onChange = () => {
-        this.setState({stats: AnalyticsStore.getAllSystem()});
-    }
-
     render() {
-        const stats = this.state.stats;
+        const stats = this.props.stats;
         const isLicensed = this.props.isLicensed;
         const skippedIntensiveQueries = stats[StatTypes.TOTAL_POSTS] === -1;
         const postCountsDay = formatPostsPerDayData(stats[StatTypes.POST_PER_DAY]);
+        const botPostCountsDay = formatPostsPerDayData(stats[StatTypes.BOT_POST_PER_DAY]);
         const userCountsWithPostsDay = formatUsersWithPostsPerDayData(stats[StatTypes.USERS_WITH_POSTS_PER_DAY]);
+        synchronizeChartData(postCountsDay, botPostCountsDay, userCountsWithPostsDay);
 
         let banner;
         let postCount;
         let postTotalGraph;
+        let botPostTotalGraph;
         let activeUserGraph;
         if (skippedIntensiveQueries) {
             banner = (
                 <div className='banner'>
                     <div className='banner__content'>
-                        <FormattedHTMLMessage
+                        <FormattedMarkdownMessage
                             id='analytics.system.skippedIntensiveQueries'
-                            defaultMessage="To maximize performance, some statistics are disabled. You can <a href='https://docs.mattermost.com/administration/statistics.html' target='_blank'>re-enable them in config.json</a>."
+                            defaultMessage='To maximize performance, some statistics are disabled. You can [re-enable them in config.json](!https://docs.mattermost.com/administration/statistics.html).'
                         />
                     </div>
                 </div>
@@ -96,6 +80,22 @@ export default class SystemAnalytics extends React.Component {
                     icon='fa-comment'
                     count={stats[StatTypes.TOTAL_POSTS]}
                 />
+            );
+
+            botPostTotalGraph = (
+                <div className='row'>
+                    <LineChart
+                        title={
+                            <FormattedMessage
+                                id='analytics.system.totalBotPosts'
+                                defaultMessage='Total Posts from Bots'
+                            />
+                        }
+                        data={botPostCountsDay}
+                        width={740}
+                        height={225}
+                    />
+                </div>
             );
 
             postTotalGraph = (
@@ -385,22 +385,25 @@ export default class SystemAnalytics extends React.Component {
 
         return (
             <div className='wrapper--fixed team_statistics'>
-                <h3 className='admin-console-header'>
-                    <FormattedMessage
-                        id='analytics.system.title'
-                        defaultMessage='System Statistics'
-                    />
-                </h3>
-                {banner}
-                <div className='row'>
-                    {firstRow}
-                    {secondRow}
-                    {thirdRow}
-                    {advancedStats}
+                <FormattedAdminHeader
+                    id='analytics.system.title'
+                    defaultMessage='System Statistics'
+                />
+                <div className='admin-console__wrapper'>
+                    <div className='admin-console__content'>
+                        {banner}
+                        <div className='row'>
+                            {firstRow}
+                            {secondRow}
+                            {thirdRow}
+                            {advancedStats}
+                        </div>
+                        {advancedGraphs}
+                        {postTotalGraph}
+                        {botPostTotalGraph}
+                        {activeUserGraph}
+                    </div>
                 </div>
-                {advancedGraphs}
-                {postTotalGraph}
-                {activeUserGraph}
             </div>
         );
     }

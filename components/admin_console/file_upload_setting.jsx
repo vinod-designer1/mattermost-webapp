@@ -8,7 +8,7 @@ import {FormattedMessage} from 'react-intl';
 
 import * as Utils from 'utils/utils.jsx';
 
-import Setting from './setting.jsx';
+import Setting from './setting';
 
 export default class FileUploadSetting extends Setting {
     static get propTypes() {
@@ -27,23 +27,20 @@ export default class FileUploadSetting extends Setting {
     constructor(props) {
         super(props);
 
-        this.handleChange = this.handleChange.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
-
         this.state = {
             fileName: null,
             serverError: props.error,
         };
     }
 
-    handleChange() {
+    handleChange = () => {
         const files = this.refs.fileInput.files;
         if (files && files.length > 0) {
             this.setState({fileSelected: true, fileName: files[0].name});
         }
     }
 
-    handleSubmit(e) {
+    handleSubmit = (e) => {
         e.preventDefault();
 
         $(this.refs.upload_button).button('loading');

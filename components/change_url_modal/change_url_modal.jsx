@@ -8,6 +8,7 @@ import {FormattedMessage} from 'react-intl';
 
 import Constants from 'utils/constants';
 import {getShortenedURL, cleanUpUrlable} from 'utils/url';
+import {t} from 'utils/i18n';
 
 export default class ChangeURLModal extends React.PureComponent {
     static propTypes = {
@@ -75,14 +76,14 @@ export default class ChangeURLModal extends React.PureComponent {
         };
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
+    static getDerivedStateFromProps(props, state) {
         // This check prevents the url being deleted when we re-render
         // because of user status check
-        if (!this.state.userEdit) {
-            this.setState({
-                currentURL: nextProps.currentURL,
-            });
+        if (!state.userEdit) {
+            return {currentURL: props.currentURL};
         }
+
+        return null;
     }
 
     onURLChanged = (e) => {
@@ -105,29 +106,29 @@ export default class ChangeURLModal extends React.PureComponent {
 
         if (url.length < 2) {
             error.push(
-                this.formattedError('error1', 'change_url.longer', 'URL must be two or more characters.')
+                this.formattedError('error1', t('change_url.longer'), 'URL must be two or more characters.')
             );
         }
         if (url.charAt(0) === '-' || url.charAt(0) === '_') {
             error.push(
-                this.formattedError('error2', 'change_url.startWithLetter', 'URL must start with a letter or number.')
+                this.formattedError('error2', t('change_url.startWithLetter'), 'URL must start with a letter or number.')
             );
         }
         if (url.length > 1 && (url.charAt(url.length - 1) === '-' || url.charAt(url.length - 1) === '_')) {
             error.push(
-                this.formattedError('error3', 'change_url.endWithLetter', 'URL must end with a letter or number.')
+                this.formattedError('error3', t('change_url.endWithLetter'), 'URL must end with a letter or number.')
             );
         }
         if (url.indexOf('__') > -1) {
             error.push(
-                this.formattedError('error4', 'change_url.noUnderscore', 'URL can not contain two underscores in a row.')
+                this.formattedError('error4', t('change_url.noUnderscore'), 'URL can not contain two underscores in a row.')
             );
         }
 
         // In case of error we don't detect
         if (error.length === 0) {
             error.push(
-                this.formattedError('errorlast', 'change_url.invalidUrl', 'Invalid URL')
+                this.formattedError('errorlast', t('change_url.invalidUrl'), 'Invalid URL')
             );
         }
         return error;
@@ -176,12 +177,20 @@ export default class ChangeURLModal extends React.PureComponent {
 
         return (
             <Modal
+                dialogClassName='a11y__modal'
                 show={this.props.show}
                 onHide={this.onCancel}
                 onExited={this.props.onModalExited}
+                role='dialog'
+                aria-labelledby='changeUrlModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>{this.props.title}</Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='changeUrlModalLabel'
+                    >
+                        {this.props.title}
+                    </Modal.Title>
                 </Modal.Header>
                 <form
                     role='form'
@@ -204,7 +213,6 @@ export default class ChangeURLModal extends React.PureComponent {
                             <div className='col-sm-9'>
                                 <div className={urlClass}>
                                     <OverlayTrigger
-                                        trigger={['hover', 'focus']}
                                         delayShow={Constants.OVERLAY_TIME_DELAY}
                                         placement='top'
                                         overlay={urlTooltip}
@@ -219,7 +227,6 @@ export default class ChangeURLModal extends React.PureComponent {
                                         onChange={this.onURLChanged}
                                         value={this.state.currentURL}
                                         autoFocus={true}
-                                        tabIndex='1'
                                     />
                                 </div>
                                 {error}
@@ -229,7 +236,7 @@ export default class ChangeURLModal extends React.PureComponent {
                     <Modal.Footer>
                         <button
                             type='button'
-                            className='btn btn-default'
+                            className='btn btn-link'
                             onClick={this.onCancel}
                         >
                             <FormattedMessage
@@ -241,7 +248,6 @@ export default class ChangeURLModal extends React.PureComponent {
                             onClick={this.onSubmit}
                             type='submit'
                             className='btn btn-primary'
-                            tabIndex='2'
                         >
                             {this.props.submitButtonText}
                         </button>

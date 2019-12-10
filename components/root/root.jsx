@@ -2,75 +2,73 @@
 // See LICENSE.txt for license information.
 
 import $ from 'jquery';
-require('perfect-scrollbar/jquery')($);
 
 import PropTypes from 'prop-types';
 import React from 'react';
-import {IntlProvider} from 'react-intl';
 import FastClick from 'fastclick';
 import {Route, Switch, Redirect} from 'react-router-dom';
 import {setUrl} from 'mattermost-redux/actions/general';
 import {setSystemEmojis} from 'mattermost-redux/actions/emojis';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
-import {Client4} from 'mattermost-redux/client';
-import {setLocalizeFunction} from 'mattermost-redux/utils/i18n_utils.js';
 
-import * as UserAgent from 'utils/user_agent.jsx';
+import * as UserAgent from 'utils/user_agent';
 import {EmojiIndicesByAlias} from 'utils/emoji.jsx';
 import {trackLoadTime} from 'actions/diagnostics_actions.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
 import BrowserStore from 'stores/browser_store.jsx';
-import ErrorStore from 'stores/error_store.jsx';
-import LocalizationStore from 'stores/localization_store.jsx';
-import UserStore from 'stores/user_store.jsx';
-import {loadMeAndConfig} from 'actions/user_actions.jsx';
 import {loadRecentlyUsedCustomEmojis} from 'actions/emoji_actions.jsx';
-import * as I18n from 'i18n/i18n.jsx';
 import {initializePlugins} from 'plugins';
-import {localizeMessage} from 'utils/utils.jsx';
-import Constants, {StoragePrefixes} from 'utils/constants.jsx';
+import 'plugins/export.js';
+import Constants, {StoragePrefixes} from 'utils/constants';
 import {HFTRoute, LoggedInHFTRoute} from 'components/header_footer_template_route';
+import IntlProvider from 'components/intl_provider';
 import NeedsTeam from 'components/needs_team';
+import PermalinkRedirector from 'components/permalink_redirector';
 import {makeAsyncComponent} from 'components/async_load';
-import loadErrorPage from 'bundle-loader?lazy!components/error_page';
-import loadLoginController from 'bundle-loader?lazy!components/login/login_controller';
-import loadAdminConsole from 'bundle-loader?lazy!components/admin_console';
-import loadLoggedIn from 'bundle-loader?lazy!components/logged_in';
-import loadPasswordResetSendLink from 'bundle-loader?lazy!components/password_reset_send_link';
-import loadPasswordResetForm from 'bundle-loader?lazy!components/password_reset_form';
-import loadSignupController from 'bundle-loader?lazy!components/signup/signup_controller';
-import loadSignupEmail from 'bundle-loader?lazy!components/signup/signup_email';
-import loadShouldVerifyEmail from 'bundle-loader?lazy!components/should_verify_email';
-import loadDoVerifyEmail from 'bundle-loader?lazy!components/do_verify_email';
-import loadClaimController from 'bundle-loader?lazy!components/claim';
-import loadHelpController from 'bundle-loader?lazy!components/help/help_controller';
-import loadGetIosApp from 'bundle-loader?lazy!components/get_ios_app';
-import loadGetAndroidApp from 'bundle-loader?lazy!components/get_android_app';
-import loadSelectTeam from 'bundle-loader?lazy!components/select_team';
-import loadAuthorize from 'bundle-loader?lazy!components/authorize';
-import loadCreateTeam from 'bundle-loader?lazy!components/create_team';
-import loadMfa from 'bundle-loader?lazy!components/mfa/mfa_controller';
-import store from 'stores/redux_store.jsx';
-import {getSiteURL} from 'utils/url.jsx';
+const LazyErrorPage = React.lazy(() => import('components/error_page'));
+const LazyLoginController = React.lazy(() => import('components/login/login_controller'));
+const LazyAdminConsole = React.lazy(() => import('components/admin_console'));
+const LazyLoggedIn = React.lazy(() => import('components/logged_in'));
+const LazyPasswordResetSendLink = React.lazy(() => import('components/password_reset_send_link'));
+const LazyPasswordResetForm = React.lazy(() => import('components/password_reset_form'));
+const LazySignupController = React.lazy(() => import('components/signup/signup_controller'));
+const LazySignupEmail = React.lazy(() => import('components/signup/signup_email'));
+const LazyTermsOfService = React.lazy(() => import('components/terms_of_service'));
+const LazyShouldVerifyEmail = React.lazy(() => import('components/should_verify_email'));
+const LazyDoVerifyEmail = React.lazy(() => import('components/do_verify_email'));
+const LazyClaimController = React.lazy(() => import('components/claim'));
+const LazyHelpController = React.lazy(() => import('components/help/help_controller'));
+const LazyGetIosApp = React.lazy(() => import('components/get_ios_app'));
+const LazyGetAndroidApp = React.lazy(() => import('components/get_android_app'));
+const LazySelectTeam = React.lazy(() => import('components/select_team'));
+const LazyAuthorize = React.lazy(() => import('components/authorize'));
+const LazyCreateTeam = React.lazy(() => import('components/create_team'));
+const LazyMfa = React.lazy(() => import('components/mfa/mfa_controller'));
 
-const CreateTeam = makeAsyncComponent(loadCreateTeam);
-const ErrorPage = makeAsyncComponent(loadErrorPage);
-const LoginController = makeAsyncComponent(loadLoginController);
-const AdminConsole = makeAsyncComponent(loadAdminConsole);
-const LoggedIn = makeAsyncComponent(loadLoggedIn);
-const PasswordResetSendLink = makeAsyncComponent(loadPasswordResetSendLink);
-const PasswordResetForm = makeAsyncComponent(loadPasswordResetForm);
-const SignupController = makeAsyncComponent(loadSignupController);
-const SignupEmail = makeAsyncComponent(loadSignupEmail);
-const ShouldVerifyEmail = makeAsyncComponent(loadShouldVerifyEmail);
-const DoVerifyEmail = makeAsyncComponent(loadDoVerifyEmail);
-const ClaimController = makeAsyncComponent(loadClaimController);
-const HelpController = makeAsyncComponent(loadHelpController);
-const GetIosApp = makeAsyncComponent(loadGetIosApp);
-const GetAndroidApp = makeAsyncComponent(loadGetAndroidApp);
-const SelectTeam = makeAsyncComponent(loadSelectTeam);
-const Authorize = makeAsyncComponent(loadAuthorize);
-const Mfa = makeAsyncComponent(loadMfa);
+import store from 'stores/redux_store.jsx';
+import {getSiteURL} from 'utils/url';
+import {enableDevModeFeatures, isDevMode} from 'utils/utils';
+import A11yController from 'utils/a11y_controller';
+
+const CreateTeam = makeAsyncComponent(LazyCreateTeam);
+const ErrorPage = makeAsyncComponent(LazyErrorPage);
+const TermsOfService = makeAsyncComponent(LazyTermsOfService);
+const LoginController = makeAsyncComponent(LazyLoginController);
+const AdminConsole = makeAsyncComponent(LazyAdminConsole);
+const LoggedIn = makeAsyncComponent(LazyLoggedIn);
+const PasswordResetSendLink = makeAsyncComponent(LazyPasswordResetSendLink);
+const PasswordResetForm = makeAsyncComponent(LazyPasswordResetForm);
+const SignupController = makeAsyncComponent(LazySignupController);
+const SignupEmail = makeAsyncComponent(LazySignupEmail);
+const ShouldVerifyEmail = makeAsyncComponent(LazyShouldVerifyEmail);
+const DoVerifyEmail = makeAsyncComponent(LazyDoVerifyEmail);
+const ClaimController = makeAsyncComponent(LazyClaimController);
+const HelpController = makeAsyncComponent(LazyHelpController);
+const GetIosApp = makeAsyncComponent(LazyGetIosApp);
+const GetAndroidApp = makeAsyncComponent(LazyGetAndroidApp);
+const SelectTeam = makeAsyncComponent(LazySelectTeam);
+const Authorize = makeAsyncComponent(LazyAuthorize);
+const Mfa = makeAsyncComponent(LazyMfa);
 
 const LoggedInRoute = ({component: Component, ...rest}) => (
     <Route
@@ -86,12 +84,18 @@ const LoggedInRoute = ({component: Component, ...rest}) => (
 export default class Root extends React.Component {
     static propTypes = {
         diagnosticsEnabled: PropTypes.bool,
+        diagnosticId: PropTypes.string,
         noAccounts: PropTypes.bool,
-        children: PropTypes.object,
+        showTermsOfService: PropTypes.bool,
+        actions: PropTypes.shape({
+            loadMeAndConfig: PropTypes.func.isRequired,
+        }).isRequired,
     }
 
     constructor(props) {
         super(props);
+        this.currentCategoryFocus = 0;
+        this.currentSidebarFocus = 0;
 
         // Redux
         setUrl(getSiteURL());
@@ -108,7 +112,7 @@ export default class Root extends React.Component {
                 }
 
                 console.log('detected logout from a different tab'); //eslint-disable-line no-console
-                GlobalActions.emitUserLoggedOutEvent('/', false);
+                GlobalActions.emitUserLoggedOutEvent('/', false, false);
             }
 
             if (e.originalEvent.key === StoragePrefixes.LOGIN && e.originalEvent.storageArea === localStorage && e.originalEvent.newValue) {
@@ -136,23 +140,42 @@ export default class Root extends React.Component {
         // Fastclick
         FastClick.attach(document.body);
 
-        // Loading page so reset connection failure count
-        ErrorStore.setConnectionErrorCount(0);
-
         this.state = {
             configLoaded: false,
-            locale: LocalizationStore.getLocale(),
-            translations: LocalizationStore.getTranslations(),
         };
+
+        // Keyboard navigation for accessibility
+        if (!UserAgent.isInternetExplorer()) {
+            this.a11yController = new A11yController();
+        }
     }
 
     onConfigLoaded = () => {
+        if (isDevMode()) {
+            enableDevModeFeatures();
+        }
+
         const segmentKey = Constants.DIAGNOSTICS_SEGMENT_KEY;
+        const diagnosticId = this.props.diagnosticId;
 
         /*eslint-disable */
-        if (segmentKey != null && segmentKey !== '' && this.props.diagnosticsEnabled) {
-            !function(){var analytics=global.window.analytics=global.window.analytics||[];if(!analytics.initialize)if(analytics.invoked)window.console&&console.error&&console.error("Segment snippet included twice.");else{analytics.invoked=!0;analytics.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","group","track","ready","alias","page","once","off","on"];analytics.factory=function(t){return function(){var e=Array.prototype.slice.call(arguments);e.unshift(t);analytics.push(e);return analytics}};for(var t=0;t<analytics.methods.length;t++){var e=analytics.methods[t];analytics[e]=analytics.factory(e)}analytics.load=function(t){var e=document.createElement("script");e.type="text/javascript";e.async=!0;e.src=("https:"===document.location.protocol?"https://":"http://")+"cdn.segment.com/analytics.js/v1/"+t+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};analytics.SNIPPET_VERSION="3.0.1";
+        if (segmentKey != null && segmentKey !== '' && !segmentKey.startsWith('placeholder') && this.props.diagnosticsEnabled) {
+            !function(){var analytics=global.window.analytics=global.window.analytics||[];if(!analytics.initialize)if(analytics.invoked)window.console&&console.error&&console.error("Segment snippet included twice.");else{analytics.invoked=!0;analytics.methods=["trackSubmit","trackClick","trackLink","trackForm","pageview","identify","group","track","ready","alias","page","once","off","on"];analytics.factory=function(t){return function(...args){var e=Array.prototype.slice.call(args);e.unshift(t);analytics.push(e);return analytics}};for(var t=0;t<analytics.methods.length;t++){var e=analytics.methods[t];analytics[e]=analytics.factory(e)}analytics.load=function(t){var e=document.createElement("script");e.type="text/javascript";e.async=!0;e.src=("https:"===document.location.protocol ? "https://":"http://")+"cdn.segment.com/analytics.js/v1/"+t+"/analytics.min.js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(e,n)};analytics.SNIPPET_VERSION="3.0.1";
                 analytics.load(segmentKey);
+
+                analytics.identify(diagnosticId, {}, {
+                    context: {
+                        ip: '0.0.0.0',
+                    },
+                    page: {
+                        path: '',
+                        referrer: '',
+                        search: '',
+                        title: '',
+                        url: '',
+                    },
+                    anonymousId: '00000000000000000000000000',
+                });
 
                 analytics.page('ApplicationLoaded', {
                         path: '',
@@ -171,54 +194,37 @@ export default class Root extends React.Component {
         }
         /*eslint-enable */
 
-        const afterIntl = () => {
-            initializePlugins();
-            I18n.doAddLocaleData();
-            setLocalizeFunction(localizeMessage);
-
-            // Setup localization listener
-            LocalizationStore.addChangeListener(this.localizationChanged);
-
-            // Get our localizaiton
-            GlobalActions.loadCurrentLocale();
-
-            this.redirectIfNecessary(this.props);
-            this.setState({configLoaded: true});
-        };
-        if (global.Intl) {
-            afterIntl();
-        } else {
-            I18n.safariFix(afterIntl);
+        if (this.props.location.pathname === '/' && this.props.noAccounts) {
+            this.props.history.push('/signup_user_complete');
         }
+
+        initializePlugins().then(() => {
+            this.setState({configLoaded: true});
+        });
 
         loadRecentlyUsedCustomEmojis()(store.dispatch, store.getState);
 
         const iosDownloadLink = getConfig(store.getState()).IosAppDownloadLink;
         const androidDownloadLink = getConfig(store.getState()).AndroidAppDownloadLink;
 
+        const toResetPasswordScreen = this.props.location.pathname === '/reset_password_complete';
+
         // redirect to the mobile landing page if the user hasn't seen it before
-        if (iosDownloadLink && UserAgent.isIosWeb() && !BrowserStore.hasSeenLandingPage()) {
-            this.props.history.push('/get_ios_app');
+        if (iosDownloadLink && UserAgent.isIosWeb() && !BrowserStore.hasSeenLandingPage() && !toResetPasswordScreen) {
+            this.props.history.push('/get_ios_app?redirect_to=' + encodeURIComponent(this.props.location.pathname) + encodeURIComponent(this.props.location.search));
             BrowserStore.setLandingPageSeen(true);
-        } else if (androidDownloadLink && UserAgent.isAndroidWeb() && !BrowserStore.hasSeenLandingPage()) {
-            this.props.history.push('/get_android_app');
+        } else if (androidDownloadLink && UserAgent.isAndroidWeb() && !BrowserStore.hasSeenLandingPage() && !toResetPasswordScreen) {
+            this.props.history.push('/get_android_app?redirect_to=' + encodeURIComponent(this.props.location.pathname) + encodeURIComponent(this.props.location.search));
             BrowserStore.setLandingPageSeen(true);
         }
-    }
-
-    localizationChanged = () => {
-        const locale = LocalizationStore.getLocale();
-
-        Client4.setAcceptLanguage(locale);
-        this.setState({locale, translations: LocalizationStore.getTranslations()});
     }
 
     redirectIfNecessary = (props) => {
         if (props.location.pathname === '/') {
             if (this.props.noAccounts) {
                 this.props.history.push('/signup_user_complete');
-            } else if (UserStore.getCurrentUser()) {
-                GlobalActions.redirectUserToDefaultTeam();
+            } else if (props.showTermsOfService) {
+                this.props.history.push('/terms_of_service');
             }
         }
     }
@@ -228,26 +234,26 @@ export default class Root extends React.Component {
     }
 
     componentDidMount() {
-        loadMeAndConfig(this.onConfigLoaded);
+        this.props.actions.loadMeAndConfig().then((response) => {
+            if (this.props.location.pathname === '/' && response[2] && response[2].data) {
+                GlobalActions.redirectUserToDefaultTeam();
+            }
+            this.onConfigLoaded();
+        });
         trackLoadTime();
     }
 
     componentWillUnmount() {
-        LocalizationStore.removeChangeListener(this.localizationChanged);
         $(window).unbind('storage');
     }
 
     render() {
-        if (this.state.translations == null || this.state.configLoaded === false) {
+        if (!this.state.configLoaded) {
             return <div/>;
         }
 
         return (
-            <IntlProvider
-                locale={this.state.locale}
-                messages={this.state.translations}
-                key={this.state.locale}
-            >
+            <IntlProvider>
                 <Switch>
                     <Route
                         path={'/error'}
@@ -289,6 +295,10 @@ export default class Root extends React.Component {
                         path={'/help'}
                         component={HelpController}
                     />
+                    <LoggedInRoute
+                        path={'/terms_of_service'}
+                        component={TermsOfService}
+                    />
                     <Route
                         path={'/get_ios_app'}
                         component={GetIosApp}
@@ -318,10 +328,19 @@ export default class Root extends React.Component {
                         component={Mfa}
                     />
                     <LoggedInRoute
+                        path={['/_redirect/integrations*', '/_redirect/pl/:postid']}
+                        component={PermalinkRedirector}
+                    />
+                    <LoggedInRoute
                         path={'/:team'}
                         component={NeedsTeam}
                     />
-                    <Redirect to={'/login'}/>
+                    <Redirect
+                        to={{
+                            ...this.props.location,
+                            pathname: '/login',
+                        }}
+                    />
                 </Switch>
             </IntlProvider>
         );

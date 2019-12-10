@@ -7,10 +7,7 @@ import {Overlay} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 
 import {trackEvent} from 'actions/diagnostics_actions.jsx';
-import {savePreference} from 'actions/user_actions.jsx';
-import PreferenceStore from 'stores/preference_store.jsx';
-import UserStore from 'stores/user_store.jsx';
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import tutorialGif from 'images/tutorialTip.gif';
 import tutorialGifWhite from 'images/tutorialTipWhite.gif';
 
@@ -18,10 +15,29 @@ const Preferences = Constants.Preferences;
 const TutorialSteps = Constants.TutorialSteps;
 
 export default class TutorialTip extends React.Component {
+    static propTypes = {
+        currentUserId: PropTypes.string.isRequired,
+        step: PropTypes.number.isRequired,
+        screens: PropTypes.array.isRequired,
+        placement: PropTypes.string.isRequired,
+        overlayClass: PropTypes.string,
+        diagnosticsTag: PropTypes.string,
+        actions: PropTypes.shape({
+            closeRhsMenu: PropTypes.func.isRequired,
+            savePreferences: PropTypes.func.isRequired,
+        }),
+    }
+
+    static defaultProps = {
+        overlayClass: '',
+    }
+
     constructor(props) {
         super(props);
 
         this.state = {currentScreen: 0, show: false};
+
+        this.targetRef = React.createRef();
     }
 
     show = () => {
@@ -54,15 +70,20 @@ export default class TutorialTip extends React.Component {
             trackEvent('tutorial', tag);
         }
 
-        this.props.actions.closeRhsMenu();
+        const {currentUserId, actions} = this.props;
+        const {closeRhsMenu, savePreferences} = actions;
+
+        const preferences = [{
+            user_id: currentUserId,
+            category: Preferences.TUTORIAL_STEP,
+            name: currentUserId,
+            value: (this.props.step + 1).toString(),
+        }];
+
+        closeRhsMenu();
         this.hide();
 
-        const step = PreferenceStore.getInt(Preferences.TUTORIAL_STEP, UserStore.getCurrentId(), 0);
-        savePreference(
-            Preferences.TUTORIAL_STEP,
-            UserStore.getCurrentId(),
-            (step + 1).toString()
-        );
+        savePreferences(currentUserId, preferences);
     }
 
     skipTutorial = (e) => {
@@ -77,11 +98,15 @@ export default class TutorialTip extends React.Component {
             trackEvent('tutorial', tag);
         }
 
-        savePreference(
-            Preferences.TUTORIAL_STEP,
-            UserStore.getCurrentId(),
-            TutorialSteps.FINISHED.toString()
-        );
+        const {currentUserId, actions} = this.props;
+        const preferences = [{
+            user_id: currentUserId,
+            category: Preferences.TUTORIAL_STEP,
+            name: currentUserId,
+            value: TutorialSteps.FINISHED.toString(),
+        }];
+
+        actions.savePreferences(currentUserId, preferences);
     }
 
     handleCircleClick = (e, screen) => {
@@ -90,7 +115,7 @@ export default class TutorialTip extends React.Component {
     }
 
     getTarget = () => {
-        return this.refs.target;
+        return this.targetRef.current;
     }
 
     render() {
@@ -138,11 +163,12 @@ export default class TutorialTip extends React.Component {
                 onClick={this.show}
             >
                 <img
+                    alt={'tutorial tip'}
                     className='tip-button'
                     src={tutorialGifImage}
                     width='35'
                     onClick={this.show}
-                    ref='target'
+                    ref={this.targetRef}
                 />
 
                 <Overlay
@@ -194,17 +220,3 @@ export default class TutorialTip extends React.Component {
         );
     }
 }
-
-TutorialTip.defaultProps = {
-    overlayClass: '',
-};
-
-TutorialTip.propTypes = {
-    screens: PropTypes.array.isRequired,
-    placement: PropTypes.string.isRequired,
-    overlayClass: PropTypes.string,
-    diagnosticsTag: PropTypes.string,
-    actions: PropTypes.shape({
-        closeRhsMenu: PropTypes.func.isRequired,
-    }),
-};

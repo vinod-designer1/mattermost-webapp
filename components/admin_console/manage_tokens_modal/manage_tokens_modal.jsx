@@ -4,12 +4,15 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {Modal} from 'react-bootstrap';
-import {FormattedHTMLMessage, FormattedMessage} from 'react-intl';
+import {FormattedMessage} from 'react-intl';
 import {Client4} from 'mattermost-redux/client';
 import * as UserUtils from 'mattermost-redux/utils/user_utils';
 
 import RevokeTokenButton from 'components/admin_console/revoke_token_button';
-import LoadingScreen from 'components/loading_screen.jsx';
+import LoadingScreen from 'components/loading_screen';
+import Avatar from 'components/widgets/users/avatar';
+
+import FormattedMarkdownMessage from 'components/formatted_markdown_message.jsx';
 
 export default class ManageTokensModal extends React.PureComponent {
     static propTypes = {
@@ -48,11 +51,11 @@ export default class ManageTokensModal extends React.PureComponent {
         this.state = {error: null};
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
+    componentDidUpdate(prevProps) {
         const userId = this.props.user ? this.props.user.id : null;
-        const nextUserId = nextProps.user ? nextProps.user.id : null;
-        if (nextUserId && nextUserId !== userId) {
-            this.props.actions.getUserAccessTokensForUser(nextUserId, 0, 200);
+        const prevUserId = prevProps.user ? prevProps.user.id : null;
+        if (userId && prevUserId !== userId) {
+            this.props.actions.getUserAccessTokensForUser(userId, 0, 200);
         }
     }
 
@@ -129,9 +132,10 @@ export default class ManageTokensModal extends React.PureComponent {
         return (
             <div>
                 <div className='manage-teams__user'>
-                    <img
-                        className='manage-teams__profile-picture'
-                        src={Client4.getProfilePictureUrl(user.id, user.last_picture_update)}
+                    <Avatar
+                        username={user.username}
+                        url={Client4.getProfilePictureUrl(user.id, user.last_picture_update)}
+                        size='lg'
                     />
                     <div className='manage-teams__info'>
                         <div className='manage-teams__name'>
@@ -143,9 +147,9 @@ export default class ManageTokensModal extends React.PureComponent {
                     </div>
                 </div>
                 <div className='padding-top x2'>
-                    <FormattedHTMLMessage
+                    <FormattedMarkdownMessage
                         id='admin.manage_tokens.userAccessTokensDescription'
-                        defaultMessage='Personal access tokens function similarly to session tokens and can be used by integrations to <a href="https://about.mattermost.com/default-api-authentication" target="_blank">interact with this Mattermost server</a>. Tokens are disabled if the user is deactivated. Learn more about <a href="https://about.mattermost.com/default-user-access-tokens" target="_blank">personal access tokens</a>.'
+                        defaultMessage='Personal access tokens function similarly to session tokens and can be used by integrations to [interact with this Mattermost server](!https://about.mattermost.com/default-api-authentication). Tokens are disabled if the user is deactivated. Learn more about [personal access tokens](!https://about.mattermost.com/default-user-access-tokens).'
                     />
                 </div>
                 <div className='manage-teams__teams'>
@@ -160,10 +164,15 @@ export default class ManageTokensModal extends React.PureComponent {
             <Modal
                 show={this.props.show}
                 onHide={this.props.onModalDismissed}
-                dialogClassName='manage-teams'
+                dialogClassName='a11y__modal manage-teams'
+                role='dialog'
+                aria-labelledby='manageTokensModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='manageTokensModalLabel'
+                    >
                         <FormattedMessage
                             id='admin.manage_tokens.manageTokensTitle'
                             defaultMessage='Manage Personal Access Tokens'

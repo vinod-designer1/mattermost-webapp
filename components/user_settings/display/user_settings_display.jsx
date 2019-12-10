@@ -6,42 +6,72 @@ import React from 'react';
 import {getTimezoneRegion} from 'mattermost-redux/utils/timezone_utils';
 import {FormattedMessage} from 'react-intl';
 
-import {deletePreferences, savePreferences} from 'actions/user_actions.jsx';
-import PreferenceStore from 'stores/preference_store.jsx';
-import UserStore from 'stores/user_store.jsx';
-
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
 import {getBrowserTimezone} from 'utils/timezone.jsx';
 
 import * as I18n from 'i18n/i18n.jsx';
+import {t} from 'utils/i18n';
 
 import SettingItemMax from 'components/setting_item_max.jsx';
-import SettingItemMin from 'components/setting_item_min.jsx';
+import SettingItemMin from 'components/setting_item_min';
+import ThemeSetting from 'components/user_settings/display/user_settings_theme';
+import BackIcon from 'components/widgets/icons/fa_back_icon';
 
-import ManageTimezones from './manage_timezones.jsx';
-import ManageLanguages from './manage_languages.jsx';
-import ThemeSetting from './user_settings_theme';
+import ManageTimezones from './manage_timezones';
+import ManageLanguages from './manage_languages';
 
 const Preferences = Constants.Preferences;
 
-function getDisplayStateFromStores(props) {
+function getDisplayStateFromProps(props) {
     return {
-        militaryTime: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.USE_MILITARY_TIME, Preferences.USE_MILITARY_TIME_DEFAULT),
-        teammateNameDisplay: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.NAME_NAME_FORMAT, props.configTeammateNameDisplay),
-        channelDisplayMode: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.CHANNEL_DISPLAY_MODE, Preferences.CHANNEL_DISPLAY_MODE_DEFAULT),
-        messageDisplay: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.MESSAGE_DISPLAY, Preferences.MESSAGE_DISPLAY_DEFAULT),
-        collapseDisplay: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.COLLAPSE_DISPLAY, Preferences.COLLAPSE_DISPLAY_DEFAULT),
-        linkPreviewDisplay: PreferenceStore.get(Preferences.CATEGORY_DISPLAY_SETTINGS, Preferences.LINK_PREVIEW_DISPLAY, Preferences.LINK_PREVIEW_DISPLAY_DEFAULT),
+        militaryTime: props.militaryTime,
+        teammateNameDisplay: props.teammateNameDisplay,
+        channelDisplayMode: props.channelDisplayMode,
+        messageDisplay: props.messageDisplay,
+        collapseDisplay: props.collapseDisplay,
+        linkPreviewDisplay: props.linkPreviewDisplay,
     };
 }
 
 export default class UserSettingsDisplay extends React.Component {
+    static propTypes = {
+        user: PropTypes.object,
+        updateSection: PropTypes.func,
+        activeSection: PropTypes.string,
+        closeModal: PropTypes.func.isRequired,
+        collapseModal: PropTypes.func.isRequired,
+        setRequireConfirm: PropTypes.func.isRequired,
+        setEnforceFocus: PropTypes.func.isRequired,
+        timezones: PropTypes.array.isRequired,
+        userTimezone: PropTypes.object.isRequired,
+        allowCustomThemes: PropTypes.bool,
+        enableLinkPreviews: PropTypes.bool,
+        defaultClientLocale: PropTypes.string,
+        enableThemeSelection: PropTypes.bool,
+        configTeammateNameDisplay: PropTypes.string,
+        currentUserTimezone: PropTypes.string,
+        enableTimezone: PropTypes.bool,
+        shouldAutoUpdateTimezone: PropTypes.bool,
+        militaryTime: PropTypes.string,
+        teammateNameDisplay: PropTypes.string,
+        channelDisplayMode: PropTypes.string,
+        messageDisplay: PropTypes.string,
+        collapseDisplay: PropTypes.string,
+        linkPreviewDisplay: PropTypes.string,
+        lockTeammateNameDisplay: PropTypes.bool,
+        actions: PropTypes.shape({
+            getSupportedTimezones: PropTypes.func.isRequired,
+            autoUpdateTimezone: PropTypes.func.isRequired,
+            savePreferences: PropTypes.func.isRequired,
+        }).isRequired,
+    }
+
     constructor(props) {
         super(props);
 
         this.state = {
-            ...getDisplayStateFromStores(props),
+            ...getDisplayStateFromProps(props),
             isSaving: false,
         };
 
@@ -67,8 +97,14 @@ export default class UserSettingsDisplay extends React.Component {
         }
     }
 
-    handleSubmit = () => {
-        const userId = UserStore.getCurrentId();
+    componentDidUpdate(prevProps) {
+        if (this.props.teammateNameDisplay !== prevProps.teammateNameDisplay) {
+            this.updateState();
+        }
+    }
+
+    handleSubmit = async () => {
+        const userId = this.props.user.id;
 
         const timePreference = {
             user_id: userId,
@@ -109,16 +145,18 @@ export default class UserSettingsDisplay extends React.Component {
 
         this.setState({isSaving: true});
 
-        const preferences = [timePreference, channelDisplayModePreference, messageDisplayPreference, collapseDisplayPreference, linkPreviewDisplayPreference];
-        if (this.state.teammateNameDisplay === this.props.configTeammateNameDisplay) {
-            deletePreferences([teammateNameDisplayPreference]);
-        } else {
-            preferences.push(teammateNameDisplayPreference);
-        }
+        const preferences = [
+            timePreference,
+            channelDisplayModePreference,
+            messageDisplayPreference,
+            collapseDisplayPreference,
+            linkPreviewDisplayPreference,
+            teammateNameDisplayPreference,
+        ];
 
-        savePreferences(preferences, () => {
-            this.updateSection('');
-        });
+        await this.props.actions.savePreferences(userId, preferences);
+
+        this.updateSection('');
     }
 
     handleClockRadio = (militaryTime) => {
@@ -155,7 +193,7 @@ export default class UserSettingsDisplay extends React.Component {
     }
 
     updateState = () => {
-        const newState = getDisplayStateFromStores(this.props);
+        const newState = getDisplayStateFromProps(this.props);
         if (!Utils.areObjectsEqual(newState, this.state)) {
             this.setState(newState);
         }
@@ -173,7 +211,10 @@ export default class UserSettingsDisplay extends React.Component {
             secondOption,
             thirdOption,
             description,
+            disabled,
         } = props;
+        let extraInfo = null;
+        let submit = this.handleSubmit;
 
         const firstMessage = (
             <FormattedMessage
@@ -282,8 +323,11 @@ export default class UserSettingsDisplay extends React.Component {
                 );
             }
 
-            const inputs = [
-                <div key={key}>
+            let inputs = [
+                <fieldset key={key}>
+                    <legend className='form-legend hidden-label'>
+                        {messageTitle}
+                    </legend>
                     <div className='radio'>
                         <label>
                             <input
@@ -319,18 +363,31 @@ export default class UserSettingsDisplay extends React.Component {
                         <br/>
                         {messageDesc}
                     </div>
-                </div>,
+                </fieldset>,
             ];
 
+            if (display === 'teammateNameDisplay' && disabled) {
+                extraInfo = (
+                    <span>
+                        <FormattedMessage
+                            id='user.settings.display.teammateNameDisplay'
+                            defaultMessage='This field is handled through your System Administrator. If you want to change it, you need to do so through your System Administrator.'
+                        />
+                    </span>
+                );
+                submit = null;
+                inputs = [];
+            }
             return (
                 <div>
                     <SettingItemMax
                         title={messageTitle}
                         inputs={inputs}
-                        submit={this.handleSubmit}
+                        submit={submit}
                         saving={this.state.isSaving}
                         server_error={this.state.serverError}
                         updateSection={this.updateSection}
+                        extraInfo={extraInfo}
                     />
                     <div className='divider-dark'/>
                 </div>
@@ -351,7 +408,6 @@ export default class UserSettingsDisplay extends React.Component {
                 <SettingItemMin
                     title={messageTitle}
                     describe={describe}
-                    focused={this.props.prevActiveSection === this.prevSections[section]}
                     section={section}
                     updateSection={this.updateSection}
                 />
@@ -367,25 +423,25 @@ export default class UserSettingsDisplay extends React.Component {
             value: this.state.collapseDisplay,
             defaultDisplay: 'false',
             title: {
-                id: 'user.settings.display.collapseDisplay',
+                id: t('user.settings.display.collapseDisplay'),
                 message: 'Default appearance of image previews',
             },
             firstOption: {
                 value: 'false',
                 radionButtonText: {
-                    id: 'user.settings.display.collapseOn',
+                    id: t('user.settings.display.collapseOn'),
                     message: 'On',
                 },
             },
             secondOption: {
                 value: 'true',
                 radionButtonText: {
-                    id: 'user.settings.display.collapseOff',
+                    id: t('user.settings.display.collapseOff'),
                     message: 'Off',
                 },
             },
             description: {
-                id: 'user.settings.display.collapseDesc',
+                id: t('user.settings.display.collapseDesc'),
                 message: 'Set whether previews of image links and image attachment thumbnails show as expanded or collapsed by default. This setting can also be controlled using the slash commands /expand and /collapse.',
             },
         });
@@ -399,25 +455,25 @@ export default class UserSettingsDisplay extends React.Component {
                 value: this.state.linkPreviewDisplay,
                 defaultDisplay: 'true',
                 title: {
-                    id: 'user.settings.display.linkPreviewDisplay',
+                    id: t('user.settings.display.linkPreviewDisplay'),
                     message: 'Website Link Previews',
                 },
                 firstOption: {
                     value: 'true',
                     radionButtonText: {
-                        id: 'user.settings.display.linkPreviewOn',
+                        id: t('user.settings.display.linkPreviewOn'),
                         message: 'On',
                     },
                 },
                 secondOption: {
                     value: 'false',
                     radionButtonText: {
-                        id: 'user.settings.display.linkPreviewOff',
+                        id: t('user.settings.display.linkPreviewOff'),
                         message: 'Off',
                     },
                 },
                 description: {
-                    id: 'user.settings.display.linkPreviewDesc',
+                    id: t('user.settings.display.linkPreviewDesc'),
                     message: 'When available, the first web link in a message will show a preview of the website content below the message.',
                 },
             });
@@ -432,25 +488,25 @@ export default class UserSettingsDisplay extends React.Component {
             value: this.state.militaryTime,
             defaultDisplay: 'false',
             title: {
-                id: 'user.settings.display.clockDisplay',
+                id: t('user.settings.display.clockDisplay'),
                 message: 'Clock Display',
             },
             firstOption: {
                 value: 'false',
                 radionButtonText: {
-                    id: 'user.settings.display.normalClock',
+                    id: t('user.settings.display.normalClock'),
                     message: '12-hour clock (example: 4:00 PM)',
                 },
             },
             secondOption: {
                 value: 'true',
                 radionButtonText: {
-                    id: 'user.settings.display.militaryClock',
+                    id: t('user.settings.display.militaryClock'),
                     message: '24-hour clock (example: 16:00)',
                 },
             },
             description: {
-                id: 'user.settings.display.preferTime',
+                id: t('user.settings.display.preferTime'),
                 message: 'Select how you prefer time displayed.',
             },
         });
@@ -458,37 +514,38 @@ export default class UserSettingsDisplay extends React.Component {
         const teammateNameDisplaySection = this.createSection({
             section: Preferences.NAME_NAME_FORMAT,
             display: 'teammateNameDisplay',
-            value: this.state.teammateNameDisplay,
+            value: this.props.lockTeammateNameDisplay ? this.props.configTeammateNameDisplay : this.state.teammateNameDisplay,
             defaultDisplay: this.props.configTeammateNameDisplay,
             title: {
-                id: 'user.settings.display.teammateNameDisplayTitle',
+                id: t('user.settings.display.teammateNameDisplayTitle'),
                 message: 'Teammate Name Display',
             },
             firstOption: {
                 value: Constants.TEAMMATE_NAME_DISPLAY.SHOW_USERNAME,
                 radionButtonText: {
-                    id: 'user.settings.display.teammateNameDisplayUsername',
+                    id: t('user.settings.display.teammateNameDisplayUsername'),
                     message: 'Show username',
                 },
             },
             secondOption: {
                 value: Constants.TEAMMATE_NAME_DISPLAY.SHOW_NICKNAME_FULLNAME,
                 radionButtonText: {
-                    id: 'user.settings.display.teammateNameDisplayNicknameFullname',
+                    id: t('user.settings.display.teammateNameDisplayNicknameFullname'),
                     message: 'Show nickname if one exists, otherwise show first and last name',
                 },
             },
             thirdOption: {
                 value: Constants.TEAMMATE_NAME_DISPLAY.SHOW_FULLNAME,
                 radionButtonText: {
-                    id: 'user.settings.display.teammateNameDisplayFullname',
+                    id: t('user.settings.display.teammateNameDisplayFullname'),
                     message: 'Show first and last name',
                 },
             },
             description: {
-                id: 'user.settings.display.teammateNameDisplayDescription',
+                id: t('user.settings.display.teammateNameDisplayDescription'),
                 message: 'Set how to display other user\'s names in posts and the Direct Messages list.',
             },
+            disabled: this.props.lockTeammateNameDisplay
         });
 
         let timezoneSelection;
@@ -535,29 +592,29 @@ export default class UserSettingsDisplay extends React.Component {
             value: this.state.messageDisplay,
             defaultDisplay: Preferences.MESSAGE_DISPLAY_CLEAN,
             title: {
-                id: 'user.settings.display.messageDisplayTitle',
+                id: t('user.settings.display.messageDisplayTitle'),
                 message: 'Message Display',
             },
             firstOption: {
                 value: Preferences.MESSAGE_DISPLAY_CLEAN,
                 radionButtonText: {
-                    id: 'user.settings.display.messageDisplayClean',
+                    id: t('user.settings.display.messageDisplayClean'),
                     message: 'Standard',
-                    moreId: 'user.settings.display.messageDisplayCleanDes',
+                    moreId: t('user.settings.display.messageDisplayCleanDes'),
                     moreMessage: 'Easy to scan and read.',
                 },
             },
             secondOption: {
                 value: Preferences.MESSAGE_DISPLAY_COMPACT,
                 radionButtonText: {
-                    id: 'user.settings.display.messageDisplayCompact',
+                    id: t('user.settings.display.messageDisplayCompact'),
                     message: 'Compact',
-                    moreId: 'user.settings.display.messageDisplayCompactDes',
+                    moreId: t('user.settings.display.messageDisplayCompactDes'),
                     moreMessage: 'Fit as many messages on the screen as we can.',
                 },
             },
             description: {
-                id: 'user.settings.display.messageDisplayDescription',
+                id: t('user.settings.display.messageDisplayDescription'),
                 message: 'Select how messages in a channel should be displayed.',
             },
         });
@@ -568,25 +625,25 @@ export default class UserSettingsDisplay extends React.Component {
             value: this.state.channelDisplayMode,
             defaultDisplay: Preferences.CHANNEL_DISPLAY_MODE_FULL_SCREEN,
             title: {
-                id: 'user.settings.display.channelDisplayTitle',
-                message: 'Channel Display Mode',
+                id: t('user.settings.display.channelDisplayTitle'),
+                message: 'Channel Display',
             },
             firstOption: {
                 value: Preferences.CHANNEL_DISPLAY_MODE_FULL_SCREEN,
                 radionButtonText: {
-                    id: 'user.settings.display.fullScreen',
+                    id: t('user.settings.display.fullScreen'),
                     message: 'Full width',
                 },
             },
             secondOption: {
                 value: Preferences.CHANNEL_DISPLAY_MODE_CENTERED,
                 radionButtonText: {
-                    id: 'user.settings.display.fixedWidthCentered',
+                    id: t('user.settings.display.fixedWidthCentered'),
                     message: 'Fixed width, centered',
                 },
             },
             description: {
-                id: 'user.settings.display.channeldisplaymode',
+                id: t('user.settings.display.channeldisplaymode'),
                 message: 'Select the width of the center channel.',
             },
         });
@@ -626,7 +683,6 @@ export default class UserSettingsDisplay extends React.Component {
                         }
                         width='medium'
                         describe={locale}
-                        focused={this.props.prevActiveSection === this.prevSections.languages}
                         section={'languages'}
                         updateSection={this.updateSection}
                     />
@@ -673,11 +729,9 @@ export default class UserSettingsDisplay extends React.Component {
                         ref='title'
                     >
                         <div className='modal-back'>
-                            <i
-                                className='fa fa-angle-left'
-                                title={Utils.localizeMessage('generic_icons.back', 'Back Icon')}
-                                onClick={this.props.collapseModal}
-                            />
+                            <span onClick={this.props.collapseModal}>
+                                <BackIcon/>
+                            </span>
                         </div>
                         <FormattedMessage
                             id='user.settings.display.title'
@@ -710,28 +764,3 @@ export default class UserSettingsDisplay extends React.Component {
         );
     }
 }
-
-UserSettingsDisplay.propTypes = {
-    user: PropTypes.object,
-    updateSection: PropTypes.func,
-    activeSection: PropTypes.string,
-    prevActiveSection: PropTypes.string,
-    closeModal: PropTypes.func.isRequired,
-    collapseModal: PropTypes.func.isRequired,
-    setRequireConfirm: PropTypes.func.isRequired,
-    setEnforceFocus: PropTypes.func.isRequired,
-    timezones: PropTypes.array.isRequired,
-    userTimezone: PropTypes.object.isRequired,
-    allowCustomThemes: PropTypes.bool,
-    enableLinkPreviews: PropTypes.bool,
-    defaultClientLocale: PropTypes.string,
-    enableThemeSelection: PropTypes.bool,
-    configTeammateNameDisplay: PropTypes.string,
-    currentUserTimezone: PropTypes.string,
-    enableTimezone: PropTypes.bool,
-    shouldAutoUpdateTimezone: PropTypes.bool,
-    actions: PropTypes.shape({
-        getSupportedTimezones: PropTypes.func.isRequired,
-        autoUpdateTimezone: PropTypes.func.isRequired,
-    }).isRequired,
-};

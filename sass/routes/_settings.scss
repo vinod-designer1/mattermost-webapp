@@ -107,6 +107,35 @@
             height: 128px;
             width: 128px;
         }
+        .profile-img__container {
+            height: 128px;
+            position: relative;
+            width: 128px;
+        }
+
+        .profile-img__remove {
+            @include border-radius(50%);
+            @include single-transition(all, .15s, ease);
+            background: $black;
+            color: $white;
+            height: 26px;
+            position: absolute;
+            right: 8px;
+            text-decoration: none;
+            top: 4px;
+            width: 26px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: none;
+            padding: 0;
+
+            span {
+                font-size: 22px;
+                margin-top: -3px;
+            }
+        }
+
 
         .team-img-preview,
         .team-img__container {
@@ -149,11 +178,12 @@
             text-decoration: none;
             top: -8px;
             width: 24px;
+            border: none;
+            padding: 0;
 
             span {
                 font-size: 22px;
-                left: .5px;
-                position: relative;
+                margin-top: -3px;
             }
         }
 
@@ -197,29 +227,9 @@
                     display: none;
                 }
 
-                .section-min {
-                    padding: 1em 0;
-                    margin-bottom: 0;
-                    cursor: pointer;
-                    position: relative;
-                    @include clearfix;
-
-                    &:hover {
-                        background: #f9f9f9;
-                    }
-
-                    &:hover .fa {
-                        display: inline-block;
-                    }
-
-                    &:hover .section-edit {
-                        text-decoration: underline;
-                    }
-                }
-
                 .section-max {
-                    @include clearfix;
-                    @include alpha-property(background, $black, .05);
+                    @include legacy-pie-clearfix;
+                    @include alpha-property('background', $black, .05);
                     margin-bottom: 0;
                     padding: 1em 0 1.3em;
 
@@ -353,7 +363,6 @@
                     .custom-label {
                         font-size: 12px;
                         font-weight: normal;
-                        margin-bottom: 0;
                         overflow: hidden;
                         text-overflow: ellipsis;
                         white-space: nowrap;
@@ -369,37 +378,6 @@
                             font-weight: 600;
                         }
                     }
-                }
-
-                .section-title {
-                    font-weight: 600;
-                    margin-bottom: 5px;
-                    padding-right: 50px;
-                }
-
-                .section-edit {
-                    margin-bottom: 5px;
-                    text-align: right;
-
-                    .fa {
-                        @include opacity(.5);
-                        display: none;
-                        font-size: 12px;
-                        margin-right: 5px;
-
-                        &.fa-chevron-down {
-                            margin-right: 0;
-                            position: relative;
-                            top: -1px;
-                        }
-                    }
-                }
-
-                .section-describe {
-                    @include clearfix;
-                    @include opacity(.7);
-                    text-overflow: ellipsis;
-                    white-space: pre;
                 }
 
                 .divider-dark {
@@ -447,6 +425,14 @@
                     margin-top: 20px;
                 }
 
+                .fa-wrapper {
+                    margin: 0 5px;
+                }
+
+                .resend-verification-wrapper:before {
+                    content: "\00a0 ";
+                }
+
                 .mentions-input {
                     margin-top: 10px;
                 }
@@ -470,6 +456,11 @@
                     padding: 4px 10px;
                 }
             }
+        }
+        .disabledMessage {
+            background-color: rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-top: 10px;
         }
     }
 
@@ -572,14 +563,13 @@
 .member-role,
 .member-drop {
     .fa {
-        @include opacity(.5);
-        font-size: 12px;
-        margin-right: 5px;
+        font-size: 16px;
+        margin: 0 0 0 4px;
     }
 
     .member-menu {
-        right: 110%;
-        top: -50%;
+        right: 0;
+        top: 24px;
     }
 }
 
@@ -618,4 +608,52 @@
 .user-settings__submit-checkbox {
     padding-top: 0px;
     padding-bottom: 20px;
+}
+
+.section-min {
+    padding: 1em;
+    cursor: pointer;
+    position: relative;
+    @include clearfix;
+
+    &:hover {
+        background: #f9f9f9;
+    }
+
+    &:hover .fa {
+        display: inline-block;
+    }
+
+    &:hover .section-min__edit {
+        text-decoration: underline;
+    }
+
+    .d-flex {
+        justify-content: space-between;
+    }
+}
+
+.section-min__title {
+    font-weight: 600;
+    margin-bottom: 5px;
+    padding-right: 50px;
+}
+
+.section-min__edit {
+    margin-bottom: 5px;
+    text-align: right;
+
+    .fa {
+        @include opacity(.5);
+        display: none;
+        font-size: 12px;
+        margin-right: 5px;
+    }
+}
+
+.section-min__describe {
+    @include clearfix;
+    @include opacity(.7);
+    text-overflow: ellipsis;
+    white-space: pre;
 }

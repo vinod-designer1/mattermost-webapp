@@ -6,16 +6,20 @@ import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
 import {emailToLdap} from 'actions/admin_actions.jsx';
-import {checkMfa} from 'actions/user_actions.jsx';
 import * as Utils from 'utils/utils.jsx';
+import {t} from 'utils/i18n.jsx';
 import LoginMfa from 'components/login/login_mfa.jsx';
+import LocalizedInput from 'components/localized_input/localized_input';
 
 export default class EmailToLDAP extends React.Component {
+    static propTypes = {
+        email: PropTypes.string,
+        siteName: PropTypes.string,
+        ldapLoginFieldName: PropTypes.string,
+    };
+
     constructor(props) {
         super(props);
-
-        this.submit = this.submit.bind(this);
-        this.preSubmit = this.preSubmit.bind(this);
 
         this.state = {
             passwordError: '',
@@ -24,9 +28,13 @@ export default class EmailToLDAP extends React.Component {
             serverError: '',
             showMfa: false,
         };
+
+        this.emailPasswordInput = React.createRef();
+        this.ldapIdInput = React.createRef();
+        this.ldapPassword = React.createRef();
     }
 
-    preSubmit(e) {
+    preSubmit = (e) => {
         e.preventDefault();
 
         var state = {
@@ -36,21 +44,21 @@ export default class EmailToLDAP extends React.Component {
             serverError: '',
         };
 
-        const password = this.refs.emailpassword.value;
+        const password = this.emailPasswordInput.current.value;
         if (!password) {
             state.passwordError = Utils.localizeMessage('claim.email_to_ldap.pwdError', 'Please enter your password.');
             this.setState(state);
             return;
         }
 
-        const ldapId = this.refs.ldapid.value.trim();
+        const ldapId = this.ldapIdInput.current.value.trim();
         if (!ldapId) {
             state.ldapError = Utils.localizeMessage('claim.email_to_ldap.ldapIdError', 'Please enter your AD/LDAP ID.');
             this.setState(state);
             return;
         }
 
-        const ldapPassword = this.refs.ldappassword.value;
+        const ldapPassword = this.ldapPassword.current.value;
         if (!ldapPassword) {
             state.ldapPasswordError = Utils.localizeMessage('claim.email_to_ldap.ldapPasswordError', 'Please enter your AD/LDAP password.');
             this.setState(state);
@@ -62,22 +70,10 @@ export default class EmailToLDAP extends React.Component {
         state.ldapPassword = ldapPassword;
         this.setState(state);
 
-        checkMfa(
-            this.props.email,
-            (requiresMfa) => {
-                if (requiresMfa) {
-                    this.setState({showMfa: true});
-                } else {
-                    this.submit(this.props.email, password, '', ldapId, ldapPassword);
-                }
-            },
-            (err) => {
-                this.setState({error: err.message});
-            }
-        );
+        this.submit(this.props.email, password, '', ldapId, ldapPassword);
     }
 
-    submit(loginId, password, token, ldapId, ldapPassword) {
+    submit = (loginId, password, token, ldapId, ldapPassword) => {
         emailToLdap(
             loginId,
             password,
@@ -90,20 +86,24 @@ export default class EmailToLDAP extends React.Component {
                 }
             },
             (err) => {
-                switch (err.id) {
-                case 'ent.ldap.do_login.user_not_registered.app_error':
-                case 'ent.ldap.do_login.user_filtered.app_error':
-                case 'ent.ldap.do_login.matched_to_many_users.app_error':
-                    this.setState({ldapError: err.message, showMfa: false});
-                    break;
-                case 'ent.ldap.do_login.invalid_password.app_error':
-                    this.setState({ldapPasswordError: err.message, showMfa: false});
-                    break;
-                case 'api.user.check_user_password.invalid.app_error':
-                    this.setState({passwordError: err.message, showMfa: false});
-                    break;
-                default:
-                    this.setState({serverError: err.message, showMfa: false});
+                if (!this.state.showMfa && err.server_error_id === 'mfa.validate_token.authenticate.app_error') {
+                    this.setState({showMfa: true});
+                } else {
+                    switch (err.id) {
+                    case 'ent.ldap.do_login.user_not_registered.app_error':
+                    case 'ent.ldap.do_login.user_filtered.app_error':
+                    case 'ent.ldap.do_login.matched_to_many_users.app_error':
+                        this.setState({ldapError: err.message, showMfa: false});
+                        break;
+                    case 'ent.ldap.do_login.invalid_password.app_error':
+                        this.setState({ldapPasswordError: err.message, showMfa: false});
+                        break;
+                    case 'api.user.check_user_password.invalid.app_error':
+                        this.setState({passwordError: err.message, showMfa: false});
+                        break;
+                    default:
+                        this.setState({serverError: err.message, showMfa: false});
+                    }
                 }
             }
         );
@@ -144,8 +144,6 @@ export default class EmailToLDAP extends React.Component {
         } else {
             loginPlaceholder = Utils.localizeMessage('claim.email_to_ldap.ldapId', 'AD/LDAP ID');
         }
-
-        const passwordPlaceholder = Utils.localizeMessage('claim.email_to_ldap.ldapPwd', 'AD/LDAP Password');
 
         let content;
         if (this.state.showMfa) {
@@ -189,13 +187,13 @@ export default class EmailToLDAP extends React.Component {
                         name='fakeusernameremembered'
                     />
                     <div className={passwordClass}>
-                        <input
+                        <LocalizedInput
                             type='password'
                             className='form-control'
                             name='emailPassword'
-                            ref='emailpassword'
+                            ref={this.emailPasswordInput}
                             autoComplete='off'
-                            placeholder={Utils.localizeMessage('claim.email_to_ldap.pwd', 'Password')}
+                            placeholder={{id: t('claim.email_to_ldap.pwd'), defaultMessage: 'Password'}}
                             spellCheck='false'
                         />
                     </div>
@@ -211,7 +209,7 @@ export default class EmailToLDAP extends React.Component {
                             type='text'
                             className='form-control'
                             name='ldapId'
-                            ref='ldapid'
+                            ref={this.ldapIdInput}
                             autoComplete='off'
                             placeholder={loginPlaceholder}
                             spellCheck='false'
@@ -219,13 +217,13 @@ export default class EmailToLDAP extends React.Component {
                     </div>
                     {ldapError}
                     <div className={ldapPasswordClass}>
-                        <input
+                        <LocalizedInput
                             type='password'
                             className='form-control'
                             name='ldapPassword'
-                            ref='ldappassword'
+                            ref={this.ldapPasswordInput}
                             autoComplete='off'
-                            placeholder={passwordPlaceholder}
+                            placeholder={{id: t('claim.email_to_ldap.ldapPwd'), defaultMessage: 'AD/LDAP Password'}}
                             spellCheck='false'
                         />
                     </div>
@@ -257,12 +255,6 @@ export default class EmailToLDAP extends React.Component {
         );
     }
 }
-
-EmailToLDAP.propTypes = {
-    email: PropTypes.string,
-    siteName: PropTypes.string,
-    ldapLoginFieldName: PropTypes.string,
-};
 
 const style = {
     usernameInput: {display: 'none'},

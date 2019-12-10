@@ -9,21 +9,13 @@ import {createPost} from 'actions/post_actions.jsx';
 
 import FailedPostOptions from './failed_post_options.jsx';
 
-function mapStateToProps(state, ownProps) {
-    return {
-        ...ownProps,
-    };
-}
-
 function mapDispatchToProps(dispatch) {
     return {
-        actions: {
-            ...bindActionCreators({
-                removePost,
-            }, dispatch),
+        actions: bindActionCreators({
             createPost,
-        },
+            removePost,
+        }, dispatch),
     };
 }
 
-export default connect(mapStateToProps, mapDispatchToProps)(FailedPostOptions);
+export default connect(null, mapDispatchToProps)(FailedPostOptions);

@@ -86,17 +86,24 @@ export default class ResetEmailModal extends React.Component {
         const title = (
             <FormattedMessage
                 id='admin.reset_email.titleReset'
-                defaultMessage='Reset Email'
+                defaultMessage='Update Email'
             />
         );
 
         return (
             <Modal
+                dialogClassName='a11y__modal'
                 show={this.props.show}
                 onHide={this.doCancel}
+                role='dialog'
+                aria-labelledby='resetEmailModalLabel'
+                data-testid='resetEmailModal'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='resetEmailModalLabel'
+                    >
                         {title}
                     </Modal.Title>
                 </Modal.Header>
@@ -107,14 +114,17 @@ export default class ResetEmailModal extends React.Component {
                     <Modal.Body>
                         <div className='form-group'>
                             <div className='col-sm-10'>
-                                <div className={urlClass}>
+                                <div
+                                    className={urlClass}
+                                    data-testid='resetEmailForm'
+                                >
                                     <span
                                         data-toggle='tooltip'
                                         title='New Email'
                                         className='input-group-addon email__group-addon'
                                     >
                                         <FormattedMessage
-                                            id='admin.reset_password.newEmail'
+                                            id='admin.reset_email.newEmail'
                                             defaultMessage='New Email'
                                         />
                                     </span>
@@ -124,7 +134,6 @@ export default class ResetEmailModal extends React.Component {
                                         className='form-control'
                                         maxLength='128'
                                         autoFocus={true}
-                                        tabIndex='1'
                                     />
                                 </div>
                                 {errorMsg}
@@ -134,7 +143,7 @@ export default class ResetEmailModal extends React.Component {
                     <Modal.Footer>
                         <button
                             type='button'
-                            className='btn btn-default'
+                            className='btn btn-link'
                             onClick={this.doCancel}
                         >
                             <FormattedMessage
@@ -146,7 +155,7 @@ export default class ResetEmailModal extends React.Component {
                             onClick={this.doSubmit}
                             type='submit'
                             className='btn btn-primary'
-                            tabIndex='2'
+                            data-testid='resetEmailButton'
                         >
                             <FormattedMessage
                                 id='admin.reset_email.reset'

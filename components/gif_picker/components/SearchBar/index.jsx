@@ -9,8 +9,10 @@ import {saveSearchScrollPosition, saveSearchBarText, searchTextUpdate} from 'mat
 import {getTheme} from 'mattermost-redux/selectors/entities/preferences';
 import {changeOpacity, makeStyleFromTheme} from 'mattermost-redux/utils/theme_utils';
 
-import GifSearchIcon from 'components/svg/gif_search_icon';
-import GifSearchClearIcon from 'components/svg/gif_search_clear_icon';
+import GifSearchIcon from 'components/widgets/icons/gif_search_icon';
+import GifSearchClearIcon from 'components/widgets/icons/gif_search_clear_icon';
+import LocalizedInput from 'components/localized_input/localized_input';
+import {t} from 'utils/i18n.jsx';
 
 import './SearchBar.scss';
 
@@ -42,10 +44,6 @@ const getStyle = makeStyleFromTheme((theme) => {
         },
         input: {
             borderColor: changeOpacity(theme.centerChannelColor, 0.12),
-            color: changeOpacity(theme.centerChannelColor, 0.6),
-        },
-        placeholder: {
-            color: changeOpacity(theme.centerChannelColor, 0.6),
         },
     };
 });
@@ -189,15 +187,6 @@ export class SearchBar extends Component {
                 />
             ) : null;
 
-        const placeholder = !searchBarText && !this.state.inputFocused ?
-            (
-                <span
-                    className='placeholder'
-                    style={style.placeholder}
-                >{'Search Gfycat'}</span>
-            ) :
-            null;
-
         return (
             <form
                 className='gfycat-search'
@@ -214,10 +203,11 @@ export class SearchBar extends Component {
                         className='search-input-bg'
                         style={style.inputBackground}
                     />
-                    {placeholder}
-                    <input
+                    <LocalizedInput
                         className='search-input'
                         name='searchText'
+                        autoFocus={true}
+                        placeholder={{id: t('gif_picker.gfycat'), defaultMessage: 'Search Gfycat'}}
                         onChange={this.handleChange}
                         autoComplete='off'
                         autoCapitalize='off'

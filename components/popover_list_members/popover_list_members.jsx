@@ -1,22 +1,19 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
-import {Overlay, OverlayTrigger, Popover, Tooltip} from 'react-bootstrap';
+import {Overlay, OverlayTrigger, Tooltip} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 
 import {browserHistory} from 'utils/browser_history';
-import {openDirectChannelToUser} from 'actions/channel_actions.jsx';
-import ChannelStore from 'stores/channel_store.jsx';
-import TeamStore from 'stores/team_store.jsx';
 import {canManageMembers} from 'utils/channel_utils.jsx';
-import Constants from 'utils/constants.jsx';
+import {Constants} from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
 import ChannelInviteModal from 'components/channel_invite_modal';
 import ChannelMembersModal from 'components/channel_members_modal';
-import MemberIcon from 'components/svg/member_icon';
+import MemberIcon from 'components/widgets/icons/member_icon';
+import Popover from 'components/widgets/popover';
 import TeamMembersModal from 'components/team_members_modal';
 
 import PopoverListMembersItem from './popover_list_members_item';
@@ -28,33 +25,38 @@ export default class PopoverListMembers extends React.Component {
         users: PropTypes.array.isRequired,
         memberCount: PropTypes.number,
         currentUserId: PropTypes.string.isRequired,
+        teamUrl: PropTypes.string,
         actions: PropTypes.shape({
-            getProfilesInChannel: PropTypes.func.isRequired,
+            openModal: PropTypes.func.isRequired,
+            loadProfilesAndStatusesInChannel: PropTypes.func.isRequired,
+            openDirectChannelToUserId: PropTypes.func.isRequired,
         }).isRequired,
     };
 
     constructor(props) {
         super(props);
+        this.membersList = React.createRef();
 
         this.state = {
             showPopover: false,
             showTeamMembersModal: false,
             showChannelMembersModal: false,
             showChannelInviteModal: false,
+            users: props.users,
+            statuses: props.statuses,
             sortedUsers: this.sortUsers(props.users, props.statuses),
         };
     }
 
-    componentDidUpdate() {
-        $('.member-list__popover .popover-content .more-modal__body').perfectScrollbar();
-    }
-
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (this.props.users !== nextProps.users || this.props.statuses !== nextProps.statuses) {
-            const sortedUsers = this.sortUsers(nextProps.users, nextProps.statuses);
-
-            this.setState({sortedUsers});
+    static getDerivedStateFromProps(nextProps, prevState) {
+        if (nextProps.users !== prevState.users || nextProps.statuses !== prevState.statuses) {
+            return {
+                users: nextProps.users,
+                statuses: nextProps.statuses,
+                sortedUsers: Utils.sortUsersByStatusAndDisplayName(nextProps.users, nextProps.statuses),
+            };
         }
+        return null;
     }
 
     sortUsers = (users, statuses) => {
@@ -62,21 +64,16 @@ export default class PopoverListMembers extends React.Component {
     };
 
     handleShowDirectChannel = (user) => {
+        const {actions} = this.props;
         const teammateId = user.id;
 
         if (teammateId) {
-            openDirectChannelToUser(
-                teammateId,
-                (channel, channelAlreadyExisted) => {
-                    browserHistory.push(TeamStore.getCurrentTeamRelativeUrl() + '/channels/' + channel.name);
-                    if (channelAlreadyExisted) {
-                        this.closePopover();
-                    }
-                },
-                () => {
-                    this.closePopover();
+            actions.openDirectChannelToUserId(teammateId).then(({data}) => {
+                if (data) {
+                    browserHistory.push(this.props.teamUrl + '/channels/' + data.name);
                 }
-            );
+                this.closePopover();
+            });
         }
     };
 
@@ -111,10 +108,11 @@ export default class PopoverListMembers extends React.Component {
 
     handleGetProfilesInChannel = (e) => {
         this.setState({popoverTarget: e.target, showPopover: !this.state.showPopover});
-        this.props.actions.getProfilesInChannel(this.props.channel.id, 0, undefined, 'status'); // eslint-disable-line no-undefined
+        this.props.actions.loadProfilesAndStatusesInChannel(this.props.channel.id, 0, undefined, 'status'); // eslint-disable-line no-undefined
     };
 
     getTargetPopover = () => {
+        this.membersList.current.focus();
         return this.state.popoverTarget;
     };
 
@@ -131,8 +129,9 @@ export default class PopoverListMembers extends React.Component {
             />
         ));
 
+        const channelIsArchived = this.props.channel.delete_at !== 0;
         let popoverButton;
-        if (this.props.channel.type !== Constants.GM_CHANNEL) {
+        if (this.props.channel.type !== Constants.GM_CHANNEL && !channelIsArchived) {
             let membersName = (
                 <FormattedMessage
                     id='members_popover.manageMembers'
@@ -141,7 +140,7 @@ export default class PopoverListMembers extends React.Component {
             );
 
             const manageMembers = canManageMembers(this.props.channel);
-            const isDefaultChannel = ChannelStore.isDefault(this.props.channel);
+            const isDefaultChannel = this.props.channel.name === Constants.DEFAULT_CHANNEL;
 
             if (isDefaultChannel || !manageMembers) {
                 membersName = (
@@ -159,6 +158,7 @@ export default class PopoverListMembers extends React.Component {
                 >
                     <button
                         className='btn btn-link'
+                        data-testid='membersModal'
                         onClick={this.showMembersModal}
                     >
                         {membersName}
@@ -184,7 +184,7 @@ export default class PopoverListMembers extends React.Component {
         if (this.state.showChannelMembersModal) {
             channelMembersModal = (
                 <ChannelMembersModal
-                    onModalDismissed={this.hideChannelMembersModal}
+                    onHide={this.hideChannelMembersModal}
                     showInviteModal={this.showChannelInviteModal}
                     channel={this.props.channel}
                 />
@@ -219,36 +219,37 @@ export default class PopoverListMembers extends React.Component {
             </Tooltip>
         );
 
+        const ariaLabel = `${Utils.localizeMessage('channel_header.channelMembers', 'Members')}`.toLowerCase();
+
         return (
-            <div
-                id='channelMember'
-                className={'channel-header__icon wide ' + (this.state.showPopover ? 'active' : '')}
-            >
-                <OverlayTrigger
-                    trigger={['hover', 'focus']}
-                    delayShow={Constants.OVERLAY_TIME_DELAY}
-                    placement='bottom'
-                    overlay={channelMembersTooltip}
+            <div id='channelMember'>
+                <button
+                    id='member_popover'
+                    aria-label={ariaLabel}
+                    className={'style--none member-popover__trigger channel-header__icon wide ' + (this.state.showPopover ? 'active' : '')}
+                    ref='member_popover_target'
+                    onClick={this.handleGetProfilesInChannel}
                 >
-                    <div
-                        id='member_popover'
-                        className='member-popover__trigger'
-                        ref='member_popover_target'
-                        onClick={this.handleGetProfilesInChannel}
+                    <OverlayTrigger
+                        delayShow={Constants.OVERLAY_TIME_DELAY}
+                        placement='bottom'
+                        overlay={channelMembersTooltip}
                     >
-                        <span
-                            id='channelMemberCountText'
-                            className='icon__text'
-                        >
-                            {countText}
-                        </span>
-                        <MemberIcon
-                            id='channelMemberIcon'
-                            className='icon icon__members'
-                            aria-hidden='true'
-                        />
-                    </div>
-                </OverlayTrigger>
+                        <div>
+                            <span
+                                id='channelMemberCountText'
+                                className='icon__text'
+                            >
+                                {countText}
+                            </span>
+                            <MemberIcon
+                                id='channelMemberIcon'
+                                className='icon icon__members'
+                                aria-hidden='true'
+                            />
+                        </div>
+                    </OverlayTrigger>
+                </button>
                 <Overlay
                     rootClose={true}
                     onHide={this.closePopover}
@@ -257,15 +258,27 @@ export default class PopoverListMembers extends React.Component {
                     placement='bottom'
                 >
                     <Popover
-                        ref='memebersPopover'
                         className='member-list__popover'
                         id='member-list-popover'
                     >
-                        <div className='more-modal__header'>
+                        <div
+                            className='more-modal__header'
+                        >
                             {title}
+                            {this.props.channel.group_constrained && <div className='subhead'>
+                                <FormattedMessage
+                                    id='channel_header.groupConstrained'
+                                    defaultMessage='Members managed by linked groups.'
+                                />
+                            </div>}
                         </div>
                         <div className='more-modal__body'>
-                            <div className='more-modal__list'>
+                            <div
+                                tabIndex='-1'
+                                role='presentation'
+                                ref={this.membersList}
+                                className='more-modal__list'
+                            >
                                 {items}
                             </div>
                         </div>

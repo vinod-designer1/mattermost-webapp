@@ -11,7 +11,43 @@
 
     .post-right-comments-container {
         position: relative;
+
+        .post {
+            &.same--root {
+                &.same--user {
+                    padding-top: 0;
+                    padding-bottom: 0;
+                }
+            }
+
+            &:hover {
+                & + .Separator {
+                    .separator__hr {
+                        overflow: visible;
+
+                        &:before {
+                            content: '';
+                            background: v(center-channel-color-08);
+                            width: 100%;
+                            height: 16px;
+                            position: absolute;
+                            left: 0;
+                            top: -16px;
+                        }
+                    }
+                }
+            }
+        }
+
+        .Separator {
+            padding-top: 15px;
+
+            & + .post {
+                padding-top: 20px;
+            }
+        }
     }
+
 
 
     .help_format_text {
@@ -23,6 +59,7 @@
         &.post--root {
             border-bottom: 1px solid #ddd;
             padding-bottom: 1em;
+            padding-left: 1.5em;
 
             .post__body {
                 background: transparent !important;
@@ -38,16 +75,50 @@
         .post__body {
             width: 100%;
         }
+
+        &.post--compact {
+            .post__body {
+                padding-left: 0;
+            }
+
+            &.same--root {
+                &.post--comment {
+                    padding-left: 1em;
+
+                    .post__header {
+                        margin-left: 0;
+                        float: none;
+                        height: auto;
+
+                        .post__time {
+                            opacity: .6;
+                        }
+                    }
+
+                    .flag-icon__container, .card-icon__container {
+                        left: auto;
+                        position: relative;
+                        top: 2px;
+                    }
+                }
+            }
+
+            &.same--user {
+                .post__header {
+                    .col__name {
+                        display: inline-block;
+                    }
+                }
+            }
+        }
+
+        .post__img {
+            padding: 2px 8px 0 0;
+        }
     }
 
     hr {
         border: none;
-    }
-
-    .date-separator {
-        hr {
-            border-top: 1px solid #eee;
-        }
     }
 
     .post-create__container {
@@ -63,6 +134,7 @@
         }
 
         .custom-textarea {
+            max-height: calc(50vh - 80px);
             min-height: 100px;
         }
 
@@ -114,7 +186,12 @@
 
 .post-right-channel__name {
     font-weight: 600;
-    margin: 0 0 15px;
+    margin: 8px 0 12px;
+}
+
+.card-info-channel__name {
+    font-weight: 600;
+    margin: 0 0 15px 14px;
 }
 
 .post-right-root-container li {
@@ -139,7 +216,7 @@
 .post-right__scroll {
     -webkit-overflow-scrolling: touch;
     @include flex(1 1 auto);
-    padding-top: 10px;
+    padding-top: 28px;
     position: relative;
 
     .file-preview__container {

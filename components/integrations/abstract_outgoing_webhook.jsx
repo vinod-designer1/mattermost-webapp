@@ -6,12 +6,11 @@ import React from 'react';
 import {FormattedMessage} from 'react-intl';
 import {Link} from 'react-router-dom';
 
-import TeamStore from 'stores/team_store.jsx';
 import {localizeMessage} from 'utils/utils.jsx';
 import BackstageHeader from 'components/backstage/components/backstage_header.jsx';
-import ChannelSelect from 'components/channel_select.jsx';
-import FormError from 'components/form_error.jsx';
-import SpinnerButton from 'components/spinner_button.jsx';
+import ChannelSelect from 'components/channel_select';
+import FormError from 'components/form_error';
+import SpinnerButton from 'components/spinner_button';
 
 export default class AbstractOutgoingWebhook extends React.Component {
     static propTypes = {
@@ -32,6 +31,11 @@ export default class AbstractOutgoingWebhook extends React.Component {
         footer: PropTypes.object.isRequired,
 
         /**
+        * The spinner loading text to render, has id and defaultMessage
+        */
+        loading: PropTypes.object.isRequired,
+
+        /**
          * Any extra component/node to render
          */
         renderExtra: PropTypes.node.isRequired,
@@ -50,6 +54,16 @@ export default class AbstractOutgoingWebhook extends React.Component {
          * The async function to run when the action button is pressed
          */
         action: PropTypes.func.isRequired,
+
+        /**
+         * Whether to allow configuration of the default post username.
+         */
+        enablePostUsernameOverride: PropTypes.bool.isRequired,
+
+        /**
+         * Whether to allow configuration of the default post icon.
+         */
+        enablePostIconOverride: PropTypes.bool.isRequired,
     }
 
     constructor(props) {
@@ -85,6 +99,8 @@ export default class AbstractOutgoingWebhook extends React.Component {
             callbackUrls,
             saving: false,
             clientError: null,
+            username: hook.username || '',
+            iconURL: hook.icon_url || '',
         };
     }
 
@@ -149,7 +165,7 @@ export default class AbstractOutgoingWebhook extends React.Component {
         }
 
         const hook = {
-            team_id: TeamStore.getCurrentId(),
+            team_id: this.props.team.id,
             channel_id: this.state.channelId,
             trigger_words: triggerWords,
             trigger_when: parseInt(this.state.triggerWhen, 10),
@@ -157,6 +173,8 @@ export default class AbstractOutgoingWebhook extends React.Component {
             display_name: this.state.displayName,
             content_type: this.state.contentType,
             description: this.state.description,
+            username: this.state.username,
+            icon_url: this.state.iconURL,
         };
 
         this.props.action(hook).then(() => this.setState({saving: false}));
@@ -201,6 +219,18 @@ export default class AbstractOutgoingWebhook extends React.Component {
     updateCallbackUrls = (e) => {
         this.setState({
             callbackUrls: e.target.value,
+        });
+    }
+
+    updateUsername = (e) => {
+        this.setState({
+            username: e.target.value,
+        });
+    }
+
+    updateIconURL = (e) => {
+        this.setState({
+            iconURL: e.target.value,
         });
     }
 
@@ -272,7 +302,7 @@ export default class AbstractOutgoingWebhook extends React.Component {
                                 <input
                                     id='description'
                                     type='text'
-                                    maxLength='128'
+                                    maxLength='500'
                                     className='form-control'
                                     value={this.state.description}
                                     onChange={this.updateDescription}
@@ -460,13 +490,71 @@ export default class AbstractOutgoingWebhook extends React.Component {
                                 </div>
                             </div>
                         </div>
+                        {this.props.enablePostUsernameOverride &&
+                            <div className='form-group'>
+                                <label
+                                    className='control-label col-sm-4'
+                                    htmlFor='username'
+                                >
+                                    <FormattedMessage
+                                        id='add_outgoing_webhook.username'
+                                        defaultMessage='Username'
+                                    />
+                                </label>
+                                <div className='col-md-5 col-sm-8'>
+                                    <input
+                                        id='username'
+                                        type='text'
+                                        maxLength='22'
+                                        className='form-control'
+                                        value={this.state.username}
+                                        onChange={this.updateUsername}
+                                    />
+                                    <div className='form__help'>
+                                        <FormattedMessage
+                                            id='add_outgoing_webhook.username.help'
+                                            defaultMessage='Choose the username this integration will post as. Usernames can be up to 22 characters, and may contain lowercase letters, numbers and the symbols "-", "_", and ".".'
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        {this.props.enablePostIconOverride &&
+                            <div className='form-group'>
+                                <label
+                                    className='control-label col-sm-4'
+                                    htmlFor='iconURL'
+                                >
+                                    <FormattedMessage
+                                        id='add_outgoing_webhook.icon_url'
+                                        defaultMessage='Profile Picture'
+                                    />
+                                </label>
+                                <div className='col-md-5 col-sm-8'>
+                                    <input
+                                        id='iconURL'
+                                        type='text'
+                                        maxLength='1024'
+                                        className='form-control'
+                                        value={this.state.iconURL}
+                                        onChange={this.updateIconURL}
+                                    />
+                                    <div className='form__help'>
+                                        <FormattedMessage
+                                            id='add_outgoing_webhook.icon_url.help'
+                                            defaultMessage='Choose the profile picture this integration will use when posting. Enter the URL of a .png or .jpg file at least 128 pixels by 128 pixels.'
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        }
                         <div className='backstage-form__footer'>
                             <FormError
                                 type='backstage'
                                 errors={[this.props.serverError, this.state.clientError]}
                             />
                             <Link
-                                className='btn btn-sm'
+                                className='btn btn-link btn-sm'
                                 to={`/${this.props.team.name}/integrations/outgoing_webhooks`}
                             >
                                 <FormattedMessage
@@ -478,7 +566,9 @@ export default class AbstractOutgoingWebhook extends React.Component {
                                 className='btn btn-primary'
                                 type='submit'
                                 spinning={this.state.saving}
+                                spinningText={localizeMessage(this.props.loading.id, this.props.loading.defaultMessage)}
                                 onClick={this.handleSubmit}
+                                id='saveWebhook'
                             >
                                 <FormattedMessage
                                     id={footerToRender.id}

@@ -3,19 +3,24 @@
 
 import PropTypes from 'prop-types';
 import React from 'react';
-import {Popover} from 'react-bootstrap';
-import {FormattedHTMLMessage} from 'react-intl';
+import {OverlayTrigger, Tooltip} from 'react-bootstrap';
+import {FormattedMessage} from 'react-intl';
 
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
 import SearchChannelProvider from 'components/suggestion/search_channel_provider.jsx';
 import SearchSuggestionList from 'components/suggestion/search_suggestion_list.jsx';
+import SuggestionDate from 'components/suggestion/suggestion_date.jsx';
 import SearchUserProvider from 'components/suggestion/search_user_provider.jsx';
+import SearchDateProvider from 'components/suggestion/search_date_provider.jsx';
 import SuggestionBox from 'components/suggestion/suggestion_box.jsx';
 import HeaderIconWrapper from 'components/channel_header/components/header_icon_wrapper';
-import FlagIcon from 'components/svg/flag_icon';
-import MentionsIcon from 'components/svg/mentions_icon';
-import SearchIcon from 'components/svg/search_icon';
+import SearchHint from 'components/search_hint/search_hint';
+import FlagIcon from 'components/widgets/icons/flag_icon';
+import MentionsIcon from 'components/widgets/icons/mentions_icon';
+import SearchIcon from 'components/widgets/icons/search_icon';
+import LoadingSpinner from 'components/widgets/loading/loading_spinner';
+import Popover from 'components/widgets/popover';
 
 const {KeyCodes} = Constants;
 
@@ -25,25 +30,32 @@ export default class SearchBar extends React.Component {
         searchTerms: PropTypes.string,
         isMentionSearch: PropTypes.bool,
         isFlaggedPosts: PropTypes.bool,
+        showMentionFlagBtns: PropTypes.bool,
+        isFocus: PropTypes.bool,
+        isSideBarRight: PropTypes.bool,
         actions: PropTypes.shape({
             updateSearchTerms: PropTypes.func,
             showSearchResults: PropTypes.func,
             showMentions: PropTypes.func,
             showFlaggedPosts: PropTypes.func,
             closeRightHandSide: PropTypes.func,
-            closeWebrtc: PropTypes.func,
+            autocompleteChannelsForSearch: PropTypes.func.isRequired,
         }),
     };
 
-    constructor() {
-        super();
+    static defaultProps = {
+        showMentionFlagBtns: true,
+        isFocus: false,
+    };
+
+    constructor(props) {
+        super(props);
 
         this.state = {
             focused: false,
-            isPristine: true,
         };
 
-        this.suggestionProviders = [new SearchChannelProvider(), new SearchUserProvider()];
+        this.suggestionProviders = [new SearchChannelProvider(props.actions.autocompleteChannelsForSearch), new SearchUserProvider(), new SearchDateProvider()];
     }
 
     componentDidMount() {
@@ -58,7 +70,6 @@ export default class SearchBar extends React.Component {
     }
 
     handleClose = () => {
-        this.props.actions.closeWebrtc();
         this.props.actions.closeRightHandSide();
     }
 
@@ -79,7 +90,7 @@ export default class SearchBar extends React.Component {
         // when focus is released from the search box.
         setTimeout(() => {
             this.setState({focused: false});
-        }, 100);
+        }, 200);
     }
 
     handleClear = () => {
@@ -92,10 +103,6 @@ export default class SearchBar extends React.Component {
 
     handleSearch = async (terms) => {
         if (terms.length) {
-            this.setState({
-                isPristine: false,
-            });
-
             const {error} = await this.props.actions.showSearchResults();
 
             if (!error) {
@@ -142,21 +149,23 @@ export default class SearchBar extends React.Component {
         }
     }
 
-    renderHintPopover(helpClass) {
-        if (!this.props.isCommentsPage && Utils.isMobile() && this.state.isPristine) {
-            return false;
+    renderHintPopover() {
+        if (Utils.isMobile()) {
+            return null;
+        }
+
+        let helpClass = 'search-help-popover';
+        if (!this.props.searchTerms && this.state.focused) {
+            helpClass += ' visible';
         }
 
         return (
             <Popover
-                id='searchbar-help-popup'
+                id={this.props.isSideBarRight ? 'sbr-searchbar-help-popup' : 'searchbar-help-popup'}
                 placement='bottom'
                 className={helpClass}
             >
-                <FormattedHTMLMessage
-                    id='search_bar.usage'
-                    defaultMessage='<h4>Search Options</h4><ul><li><span>Use </span><b>"quotation marks"</b><span> to search for phrases</span></li><li><span>Use </span><b>from:</b><span> to find posts from specific users and </span><b>in:</b><span> to find posts in specific channels</span></li></ul>'
-                />
+                <SearchHint withTitle={true}/>
             </Popover>
         );
     }
@@ -166,21 +175,6 @@ export default class SearchBar extends React.Component {
     }
 
     render() {
-        var isSearchingTerm = null;
-        if (this.props.isSearchingTerm) {
-            isSearchingTerm = (
-                <span
-                    className={'fa fa-spin fa-spinner'}
-                    title={Utils.localizeMessage('generic_icons.searching', 'Searching Icon')}
-                />
-            );
-        }
-
-        let helpClass = 'search-help-popover';
-        if (!this.props.searchTerms && this.state.focused) {
-            helpClass += ' visible';
-        }
-
         let mentionBtn;
         let flagBtn;
         if (this.props.showMentionFlagBtns) {
@@ -194,8 +188,9 @@ export default class SearchBar extends React.Component {
                             aria-hidden='true'
                         />
                     }
+                    ariaLabel={true}
                     buttonClass={'channel-header__icon style--none ' + mentionBtnClass}
-                    buttonId={'channelHeaderMentionButton'}
+                    buttonId={this.props.isSideBarRight ? 'sbrChannelHeaderMentionButton' : 'channelHeaderMentionButton'}
                     onClick={this.searchMentions}
                     tooltipKey={'recentMentions'}
                 />
@@ -208,57 +203,75 @@ export default class SearchBar extends React.Component {
                     iconComponent={
                         <FlagIcon className='icon icon__flag'/>
                     }
+                    ariaLabel={true}
                     buttonClass={'channel-header__icon style--none ' + flagBtnClass}
-                    buttonId={'channelHeaderFlagButton'}
+                    buttonId={this.props.isSideBarRight ? 'sbrChannelHeaderFlagButton' : 'channelHeaderFlagButton'}
                     onClick={this.getFlagged}
                     tooltipKey={'flaggedPosts'}
                 />
             );
         }
 
-        let clearClass = 'sidebar__search-clear';
-        if (!this.props.isSearchingTerm && this.props.searchTerms && this.props.searchTerms.trim() !== '') {
-            clearClass += ' visible';
-        }
+        const showClear = !this.props.isSearchingTerm && this.props.searchTerms && this.props.searchTerms.trim() !== '';
 
         let searchFormClass = 'search__form';
         if (this.state.focused) {
             searchFormClass += ' focused';
         }
 
+        const searchClearTooltip = (
+            <Tooltip id='searchClearTooltip'>
+                <FormattedMessage
+                    id='search_bar.clear'
+                    defaultMessage='Clear search query'
+                />
+            </Tooltip>
+        );
+
         return (
             <div className='sidebar-right__table'>
                 <div className='sidebar-collapse__container'>
                     <div
+                        id={this.props.isSideBarRight ? 'sbrSidebarCollapse' : 'sidebarCollapse'}
                         className='sidebar-collapse'
                         onClick={this.handleClose}
                     >
-                        <span
-                            className='fa fa-chevron-left'
-                            title={Utils.localizeMessage('generic_icons.back', 'Back Icon')}
-                        />
+                        <FormattedMessage
+                            id='generic_icons.back'
+                            defaultMessage='Back Icon'
+                        >
+                            {(title) => (
+                                <span
+                                    className='fa fa-2x fa-angle-left'
+                                    title={title}
+                                />
+                            )}
+                        </FormattedMessage>
                     </div>
                 </div>
                 <div
-                    id='searchFormContainer'
+                    id={this.props.isSideBarRight ? 'sbrSearchFormContainer' : 'searchFormContainer'}
                     className='search-form__container'
                 >
                     <form
-                        role='form'
+                        role='application'
                         className={searchFormClass}
                         onSubmit={this.handleSubmit}
                         style={style.searchForm}
                         autoComplete='off'
                     >
                         <SearchIcon
-                            id='searchIcon'
                             className='search__icon'
                             aria-hidden='true'
                         />
                         <SuggestionBox
-                            id='searchBox'
                             ref={this.getSearch}
-                            className='search-bar'
+                            id={this.props.isSideBarRight ? 'sbrSearchBox' : 'searchBox'}
+                            tabIndex='0'
+                            className='search-bar a11y__region'
+                            data-a11y-sort-order='8'
+                            aria-describedby={this.props.isSideBarRight ? 'sbr-searchbar-help-popup' : 'searchbar-help-popup'}
+                            aria-label={Utils.localizeMessage('search_bar.search', 'Search')}
                             placeholder={Utils.localizeMessage('search_bar.search', 'Search')}
                             value={this.props.searchTerms}
                             onFocus={this.handleUserFocus}
@@ -266,25 +279,34 @@ export default class SearchBar extends React.Component {
                             onChange={this.handleChange}
                             onKeyDown={this.handleKeyDown}
                             listComponent={SearchSuggestionList}
+                            dateComponent={SuggestionDate}
                             providers={this.suggestionProviders}
                             type='search'
                             autoFocus={this.props.isFocus && this.props.searchTerms === ''}
                             delayInputUpdate={true}
+                            renderDividers={true}
                         />
-                        <div
-                            id='searchClearButton'
-                            className={clearClass}
-                            onClick={this.handleClear}
-                        >
-                            <span
-                                className='sidebar__search-clear-x'
-                                aria-hidden='true'
+                        {showClear &&
+                            <div
+                                id={this.props.isSideBarRight ? 'sbrSearchClearButton' : 'searchClearButton'}
+                                className='sidebar__search-clear visible'
+                                onClick={this.handleClear}
                             >
-                                {'×'}
-                            </span>
-                        </div>
-                        {isSearchingTerm}
-                        {this.renderHintPopover(helpClass)}
+                                <OverlayTrigger
+                                    delayShow={Constants.OVERLAY_TIME_DELAY}
+                                    placement='bottom'
+                                    overlay={searchClearTooltip}
+                                >
+                                    <span
+                                        className='sidebar__search-clear-x'
+                                        aria-hidden='true'
+                                    >
+                                        {'×'}
+                                    </span>
+                                </OverlayTrigger>
+                            </div>}
+                        {this.props.isSearchingTerm && <LoadingSpinner/>}
+                        {this.renderHintPopover()}
                     </form>
                 </div>
                 {mentionBtn}
@@ -293,17 +315,6 @@ export default class SearchBar extends React.Component {
         );
     }
 }
-
-SearchBar.defaultProps = {
-    showMentionFlagBtns: true,
-    isFocus: false,
-};
-
-SearchBar.propTypes = {
-    showMentionFlagBtns: PropTypes.bool,
-    isCommentsPage: PropTypes.bool,
-    isFocus: PropTypes.bool,
-};
 
 const style = {
     searchForm: {overflow: 'visible'},

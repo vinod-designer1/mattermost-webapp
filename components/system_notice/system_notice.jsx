@@ -5,9 +5,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import {FormattedMessage} from 'react-intl';
 
-import {Preferences} from 'utils/constants.jsx';
-import {localizeMessage} from 'utils/utils.jsx';
-import MattermostLogo from 'components/svg/mattermost_logo';
+import {Preferences} from 'utils/constants';
+import {intlShape} from 'utils/react_intl';
+import MattermostLogo from 'components/widgets/icons/mattermost_logo';
 
 export default class SystemNotice extends React.PureComponent {
     static propTypes = {
@@ -16,53 +16,60 @@ export default class SystemNotice extends React.PureComponent {
         preferences: PropTypes.object.isRequired,
         dismissedNotices: PropTypes.object.isRequired,
         isSystemAdmin: PropTypes.bool,
+        serverVersion: PropTypes.string.isRequired,
+        config: PropTypes.object.isRequired,
+        license: PropTypes.object.isRequired,
+        analytics: PropTypes.object,
         actions: PropTypes.shape({
             savePreferences: PropTypes.func.isRequired,
             dismissNotice: PropTypes.func.isRequired,
+            getStandardAnalytics: PropTypes.func.isRequired,
         }).isRequired,
     }
 
-    constructor(props) {
-        super(props);
-
-        this.state = {
-            currentNotice: null,
-        };
-    }
+    static contextTypes = {
+        intl: intlShape.isRequired,
+    };
 
     componentDidMount() {
-        this.setCurrentNotice();
+        if (this.props.isSystemAdmin) {
+            this.props.actions.getStandardAnalytics();
+        }
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        this.setCurrentNotice(nextProps);
+    componentDidUpdate(prevProps) {
+        if (prevProps.isSystemAdmin !== this.props.isSystemAdmin && this.props.isSystemAdmin) {
+            this.props.actions.getStandardAnalytics();
+        }
     }
 
-    setCurrentNotice = (props = this.props) => {
-        for (const notice of props.notices) {
+    getCurrentNotice = () => {
+        for (const notice of this.props.notices) {
             // Skip if dismissed previously this session
-            if (props.dismissedNotices[notice.name]) {
+            if (this.props.dismissedNotices[notice.name]) {
                 continue;
             }
 
             // Skip if dismissed forever
-            if (props.preferences[notice.name]) {
+            if (this.props.preferences[notice.name]) {
                 continue;
             }
 
-            if (notice.adminOnly && !props.isSystemAdmin) {
+            if (notice.adminOnly && !this.props.isSystemAdmin) {
                 continue;
             }
 
-            this.setState({currentNotice: notice});
-            return;
+            if (!notice.show(this.props.serverVersion, this.props.config, this.props.license, this.props.analytics)) {
+                continue;
+            }
+
+            return notice;
         }
-
-        this.setState({currentNotice: null});
+        return null;
     }
 
     hide = (remind = false) => {
-        const notice = this.state.currentNotice;
+        const notice = this.getCurrentNotice();
         if (!notice) {
             return;
         }
@@ -88,7 +95,8 @@ export default class SystemNotice extends React.PureComponent {
     }
 
     render() {
-        const notice = this.state.currentNotice;
+        const notice = this.getCurrentNotice();
+        const {formatMessage} = this.context.intl;
 
         if (notice == null) {
             return null;
@@ -100,7 +108,7 @@ export default class SystemNotice extends React.PureComponent {
                 <div className='system-notice__info'>
                     <i
                         className='fa fa-eye'
-                        title={localizeMessage('system_notice.adminVisible.icon', 'Only visible to System Admins Icon')}
+                        title={formatMessage({id: 'system_notice.adminVisible.icon', defaultMessage: 'Only visible to System Admins Icon'})}
                     />
                     <FormattedMessage
                         id='system_notice.adminVisible'
@@ -137,16 +145,17 @@ export default class SystemNotice extends React.PureComponent {
                             defaultMessage='Remind me later'
                         />
                     </button>
-                    <button
-                        id='systemnotice_dontshow'
-                        className='btn btn-transparent'
-                        onClick={this.hideAndForget}
-                    >
-                        <FormattedMessage
-                            id='system_notice.dont_show'
-                            defaultMessage="Don't show again"
-                        />
-                    </button>
+                    {notice.allowForget &&
+                        <button
+                            id='systemnotice_dontshow'
+                            className='btn btn-transparent'
+                            onClick={this.hideAndForget}
+                        >
+                            <FormattedMessage
+                                id='system_notice.dont_show'
+                                defaultMessage="Don't show again"
+                            />
+                        </button>}
                 </div>
             </div>
         );

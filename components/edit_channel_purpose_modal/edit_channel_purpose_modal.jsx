@@ -5,13 +5,17 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {Modal} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
-import {RequestStatus} from 'mattermost-redux/constants';
 
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
 
-export default class EditChannelPurposeModal extends React.Component {
+export default class EditChannelPurposeModal extends React.PureComponent {
     static propTypes = {
+
+        /*
+         * callback to call when modal will hide
+         */
+        onHide: PropTypes.func.isRequired,
 
         /*
          * Channel info object
@@ -22,21 +26,6 @@ export default class EditChannelPurposeModal extends React.Component {
          * Check should we send purpose on CTRL + ENTER
          */
         ctrlSend: PropTypes.bool.isRequired,
-
-        /*
-         * Info about patch serverError
-         */
-        serverError: PropTypes.object,
-
-        /*
-         *  Status of patch info about channel request
-         */
-        requestStatus: PropTypes.string.isRequired,
-
-        /*
-         * Callback to call on modal hide
-         */
-        onModalDismissed: PropTypes.func.isRequired,
 
         /*
          * Object with redux action creators
@@ -58,22 +47,8 @@ export default class EditChannelPurposeModal extends React.Component {
             serverError: '',
             show: true,
             submitted: false,
+            requestStarted: false,
         };
-    }
-
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        const {requestStatus: nextRequestStatus, serverError: nextServerError} = nextProps;
-        const {requestStatus} = this.props;
-
-        if (requestStatus !== nextRequestStatus && nextRequestStatus === RequestStatus.SUCCESS) {
-            this.handleHide();
-        }
-
-        if (requestStatus !== nextRequestStatus && nextRequestStatus === RequestStatus.FAILURE) {
-            this.setError(nextServerError);
-        } else {
-            this.unsetError();
-        }
     }
 
     setError = (err) => {
@@ -97,7 +72,7 @@ export default class EditChannelPurposeModal extends React.Component {
         Utils.placeCaretAtEnd(this.purpose);
     }
 
-    handleHide = () => {
+    onHide = () => {
         this.setState({show: false});
     }
 
@@ -113,14 +88,23 @@ export default class EditChannelPurposeModal extends React.Component {
         }
     }
 
-    handleSave = () => {
+    handleSave = async () => {
         const {channel, actions: {patchChannel}} = this.props;
         const {purpose} = this.state;
         if (!channel) {
             return;
         }
 
-        patchChannel(channel.id, {purpose});
+        this.setState({requestStarted: true});
+        const {data, error} = await patchChannel(channel.id, {purpose});
+        this.setState({requestStarted: false});
+
+        if (data) {
+            this.unsetError();
+            this.onHide();
+        } else if (error) {
+            this.setError(error);
+        }
     }
 
     handleChange = (e) => {
@@ -180,15 +164,19 @@ export default class EditChannelPurposeModal extends React.Component {
 
         return (
             <Modal
-                className='modal-edit-channel-purpose'
-                ref='modal'
+                dialogClassName='a11y__modal'
                 show={this.state.show}
-                onHide={this.handleHide}
+                onHide={this.onHide}
                 onEntering={this.handleEntering}
-                onExited={this.props.onModalDismissed}
+                onExited={this.props.onHide}
+                role='dialog'
+                aria-labelledby='editChannelPurposeModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='editChannelPurposeModalLabel'
+                    >
                         {title}
                     </Modal.Title>
                 </Modal.Header>
@@ -210,8 +198,8 @@ export default class EditChannelPurposeModal extends React.Component {
                 <Modal.Footer>
                     <button
                         type='button'
-                        className='btn btn-default cancel-button'
-                        onClick={this.handleHide}
+                        className='btn btn-link cancel-button'
+                        onClick={this.onHide}
                     >
                         <FormattedMessage
                             id='edit_channel_purpose_modal.cancel'
@@ -221,7 +209,7 @@ export default class EditChannelPurposeModal extends React.Component {
                     <button
                         type='button'
                         className='btn btn-primary save-button'
-                        disabled={this.props.requestStatus === RequestStatus.STARTED}
+                        disabled={this.state.requestStarted}
                         onClick={this.handleSave}
                     >
                         <FormattedMessage

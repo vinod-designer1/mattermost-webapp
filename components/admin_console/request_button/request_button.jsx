@@ -6,6 +6,10 @@ import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
 import * as Utils from 'utils/utils.jsx';
+import {t} from 'utils/i18n';
+import LoadingWrapper from 'components/widgets/loading/loading_wrapper';
+import SuccessIcon from 'components/widgets/icons/fa_success_icon';
+import WarningIcon from 'components/widgets/icons/fa_warning_icon';
 
 /**
  * A button which, when clicked, performs an action and displays
@@ -14,6 +18,11 @@ import * as Utils from 'utils/utils.jsx';
  */
 export default class RequestButton extends React.Component {
     static propTypes = {
+
+        /**
+         * TD to assign to the form
+         */
+        id: PropTypes.string,
 
         /**
          * The action to be called to carry out the request.
@@ -122,24 +131,23 @@ export default class RequestButton extends React.Component {
     }
 
     static defaultProps = {
+        id: null,
         disabled: false,
         saveNeeded: false,
         showSuccessMessage: true,
         includeDetailedError: false,
         successMessage: {
-            id: 'admin.requestButton.requestSuccess',
+            id: t('admin.requestButton.requestSuccess'),
             defaultMessage: 'Test Successful',
         },
         errorMessage: {
-            id: 'admin.requestButton.requestFailure',
+            id: t('admin.requestButton.requestFailure'),
             defaultMessage: 'Test Failure: {error}',
         },
     }
 
     constructor(props) {
         super(props);
-
-        this.handleRequest = this.handleRequest.bind(this);
 
         this.state = {
             busy: false,
@@ -148,7 +156,7 @@ export default class RequestButton extends React.Component {
         };
     }
 
-    handleRequest(e) {
+    handleRequest = (e) => {
         e.preventDefault();
 
         this.setState({
@@ -167,7 +175,7 @@ export default class RequestButton extends React.Component {
                 },
                 (err) => {
                     let errMsg = err.message;
-                    if (this.props.includeDetailedError) {
+                    if (this.props.includeDetailedError && err.detailed_error) {
                         errMsg += ' - ' + err.detailed_error;
                     }
 
@@ -192,10 +200,7 @@ export default class RequestButton extends React.Component {
             message = (
                 <div>
                     <div className='alert alert-warning'>
-                        <i
-                            className='fa fa-warning'
-                            title={Utils.localizeMessage('generic_icons.warning', 'Warning Icon')}
-                        />
+                        <WarningIcon/>
                         <FormattedMessage
                             id={this.props.errorMessage.id}
                             defaultMessage={this.props.errorMessage.defaultMessage}
@@ -210,10 +215,7 @@ export default class RequestButton extends React.Component {
             message = (
                 <div>
                     <div className='alert alert-success'>
-                        <i
-                            className='fa fa-success'
-                            title={Utils.localizeMessage('generic_icons.success', 'Success Icon')}
-                        />
+                        <SuccessIcon/>
                         <FormattedMessage
                             id={this.props.successMessage.id}
                             defaultMessage={this.props.successMessage.defaultMessage}
@@ -221,25 +223,6 @@ export default class RequestButton extends React.Component {
                     </div>
                 </div>
             );
-        }
-
-        let contents = null;
-        if (this.state.busy) {
-            let loadingText = Utils.localizeMessage('admin.requestButton.loading', ' Loading...');
-            if (this.props.loadingText) {
-                loadingText = this.props.loadingText;
-            }
-            contents = (
-                <span>
-                    <span
-                        className='fa fa-refresh icon--rotate'
-                        title={Utils.localizeMessage('generic_icons.loading', 'Loading Icon')}
-                    />
-                    {loadingText}
-                </span>
-            );
-        } else {
-            contents = this.props.buttonText;
         }
 
         let widgetClassNames = 'col-sm-8';
@@ -257,7 +240,10 @@ export default class RequestButton extends React.Component {
         }
 
         return (
-            <div className='form-group'>
+            <div
+                className='form-group'
+                id={this.props.id}
+            >
                 {label}
                 <div className={widgetClassNames}>
                     <div>
@@ -266,7 +252,12 @@ export default class RequestButton extends React.Component {
                             onClick={this.handleRequest}
                             disabled={this.props.disabled}
                         >
-                            {contents}
+                            <LoadingWrapper
+                                loading={this.state.busy}
+                                text={this.props.loadingText || Utils.localizeMessage('admin.requestButton.loading', ' Loading...')}
+                            >
+                                {this.props.buttonText}
+                            </LoadingWrapper>
                         </button>
                         {this.props.alternativeActionElement}
                         {message}

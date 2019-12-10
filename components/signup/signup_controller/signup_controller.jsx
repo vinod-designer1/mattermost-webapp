@@ -9,23 +9,45 @@ import {Client4} from 'mattermost-redux/client';
 
 import {browserHistory} from 'utils/browser_history';
 import * as GlobalActions from 'actions/global_actions.jsx';
-import {addUserToTeamFromInvite, getInviteInfo} from 'actions/team_actions.jsx';
-import {loadMe} from 'actions/user_actions.jsx';
-import BrowserStore from 'stores/browser_store.jsx';
-import UserStore from 'stores/user_store.jsx';
 import logoImage from 'images/logo.png';
 import AnnouncementBar from 'components/announcement_bar';
 import BackButton from 'components/common/back_button.jsx';
-import FormError from 'components/form_error.jsx';
-import LoadingScreen from 'components/loading_screen.jsx';
-import {localizeMessage} from 'utils/utils.jsx';
-import {Constants} from 'utils/constants.jsx';
+import FormError from 'components/form_error';
+
+import LoadingScreen from 'components/loading_screen';
+import {Constants} from 'utils/constants';
+import {intlShape} from 'utils/react_intl';
 
 export default class SignupController extends React.Component {
+    static propTypes = {
+        location: PropTypes.object,
+        loggedIn: PropTypes.bool.isRequired,
+        isLicensed: PropTypes.bool.isRequired,
+        enableOpenServer: PropTypes.bool.isRequired,
+        noAccounts: PropTypes.bool.isRequired,
+        enableSignUpWithEmail: PropTypes.bool.isRequired,
+        enableSignUpWithGitLab: PropTypes.bool.isRequired,
+        enableSignUpWithGoogle: PropTypes.bool.isRequired,
+        enableSignUpWithOffice365: PropTypes.bool.isRequired,
+        enableLDAP: PropTypes.bool.isRequired,
+        enableSAML: PropTypes.bool.isRequired,
+        samlLoginButtonText: PropTypes.string,
+        siteName: PropTypes.string,
+        usedBefore: PropTypes.string,
+        ldapLoginFieldName: PropTypes.string.isRequired,
+        actions: PropTypes.shape({
+            removeGlobalItem: PropTypes.func.isRequired,
+            getTeamInviteInfo: PropTypes.func.isRequired,
+            addUserToTeamFromInvite: PropTypes.func.isRequired,
+        }).isRequired,
+    }
+
+    static contextTypes = {
+        intl: intlShape.isRequired,
+    };
+
     constructor(props) {
         super(props);
-
-        this.renderSignupControls = this.renderSignupControls.bind(this);
 
         let loading = false;
         let serverError = '';
@@ -45,8 +67,8 @@ export default class SignupController extends React.Component {
 
             if (inviteId) {
                 loading = true;
-            } else if (token && !UserStore.getCurrentUser()) {
-                usedBefore = BrowserStore.getGlobalItem(token);
+            } else if (!this.props.loggedIn) {
+                usedBefore = props.usedBefore;
             } else if (!inviteId && !this.props.enableOpenServer && !this.props.noAccounts) {
                 noOpenServerError = true;
                 serverError = (
@@ -67,59 +89,50 @@ export default class SignupController extends React.Component {
     }
 
     componentDidMount() {
-        BrowserStore.removeGlobalItem('team');
+        this.props.actions.removeGlobalItem('team');
         if (this.props.location.search) {
             const params = new URLSearchParams(this.props.location.search);
             const token = params.get('t') || '';
             const inviteId = params.get('id') || '';
 
-            const userLoggedIn = UserStore.getCurrentUser() != null;
+            const userLoggedIn = this.props.loggedIn;
 
             if ((inviteId || token) && userLoggedIn) {
-                addUserToTeamFromInvite(
-                    token,
-                    inviteId,
-                    (team) => {
-                        loadMe().then(
-                            () => {
-                                browserHistory.push('/' + team.name + `/channels/${Constants.DEFAULT_CHANNEL}`);
-                            }
-                        );
-                    },
-                    this.handleInvalidInvite
-                );
-
-                return;
-            }
-
-            if (inviteId) {
-                getInviteInfo(
-                    inviteId,
-                    (inviteData) => {
-                        if (!inviteData) {
-                            return;
-                        }
-
-                        this.setState({ // eslint-disable-line react/no-did-mount-set-state
-                            serverError: '',
-                            loading: false,
-                        });
-                    },
-                    this.handleInvalidInvite
-                );
-
-                return;
-            }
-
-            if (userLoggedIn) {
+                this.addUserToTeamFromInvite(token, inviteId);
+            } else if (inviteId) {
+                this.getInviteInfo(inviteId);
+            } else if (userLoggedIn) {
                 GlobalActions.redirectUserToDefaultTeam();
             }
+        }
+    }
+
+    addUserToTeamFromInvite = async (token, inviteId) => {
+        const {data: team, error} = await this.props.actions.addUserToTeamFromInvite(token, inviteId);
+        if (team) {
+            browserHistory.push('/' + team.name + `/channels/${Constants.DEFAULT_CHANNEL}`);
+        } else if (error) {
+            this.handleInvalidInvite(error);
+        }
+    }
+
+    getInviteInfo = async (inviteId) => {
+        const {data, error} = await this.props.actions.getTeamInviteInfo(inviteId);
+        if (data) {
+            this.setState({
+                serverError: '',
+                loading: false,
+            });
+        } else if (error) {
+            this.handleInvalidInvite(error);
         }
     }
 
     handleInvalidInvite = (err) => {
         let serverError;
         if (err.server_error_id === 'store.sql_user.save.max_accounts.app_error') {
+            serverError = err.message;
+        } else if (err.server_error_id === 'api.team.add_user_to_team_from_invite.guest.app_error') {
             serverError = err.message;
         } else {
             serverError = (
@@ -137,7 +150,8 @@ export default class SignupController extends React.Component {
         });
     }
 
-    renderSignupControls() {
+    renderSignupControls = () => {
+        const {formatMessage} = this.context.intl;
         let signupControls = [];
 
         if (this.props.enableSignUpWithEmail) {
@@ -150,7 +164,7 @@ export default class SignupController extends React.Component {
                     <span>
                         <span
                             className='icon fa fa-envelope'
-                            title={localizeMessage('signup.email.icon', 'Email Icon')}
+                            title={formatMessage({id: 'signup.email.icon', defaultMessage: 'Email Icon'})}
                         />
                         <FormattedMessage
                             id='signup.email'
@@ -222,22 +236,32 @@ export default class SignupController extends React.Component {
         }
 
         if (this.props.isLicensed && this.props.enableLDAP) {
+            const params = new URLSearchParams(this.props.location.search);
+            params.append('extra', 'create_ldap');
+            const query = '?' + params.toString();
+
+            let LDAPText = (
+                <FormattedMessage
+                    id='signup.ldap'
+                    defaultMessage='AD/LDAP Credentials'
+                />
+            );
+            if (this.props.ldapLoginFieldName) {
+                LDAPText = this.props.ldapLoginFieldName;
+            }
             signupControls.push(
                 <Link
                     className='btn btn-custom-login btn--full ldap'
                     key='ldap'
-                    to={'/login' + this.props.location.search}
+                    to={'/login' + query}
                 >
                     <span>
                         <span
                             className='icon fa fa-folder-open fa--margin-top'
-                            title={localizeMessage('signup.ldap.icon', 'AD/LDAP Icon')}
+                            title={formatMessage({id: 'signup.ldap.icon', defaultMessage: 'AD/LDAP Icon'})}
                         />
                         <span>
-                            <FormattedMessage
-                                id='signup.ldap'
-                                defaultMessage='AD/LDAP Credentials'
-                            />
+                            {LDAPText}
                         </span>
                     </span>
                 </Link>
@@ -261,7 +285,7 @@ export default class SignupController extends React.Component {
                     <span>
                         <span
                             className='icon fa fa-lock fa--margin-top'
-                            title={localizeMessage('signup.saml.icon', 'SAML Icon')}
+                            title={formatMessage({id: 'signup.saml.icon', defaultMessage: 'SAML Icon'})}
                         />
                         <span>
                             {this.props.samlLoginButtonText}
@@ -334,6 +358,7 @@ export default class SignupController extends React.Component {
                 <div className='col-sm-12'>
                     <div className='signup-team__container'>
                         <img
+                            alt={'signup team logo'}
                             className='signup-team-logo'
                             src={logoImage}
                         />
@@ -376,18 +401,3 @@ export default class SignupController extends React.Component {
         );
     }
 }
-
-SignupController.propTypes = {
-    location: PropTypes.object,
-    isLicensed: PropTypes.bool.isRequired,
-    enableOpenServer: PropTypes.bool.isRequired,
-    noAccounts: PropTypes.bool.isRequired,
-    enableSignUpWithEmail: PropTypes.bool.isRequired,
-    enableSignUpWithGitLab: PropTypes.bool.isRequired,
-    enableSignUpWithGoogle: PropTypes.bool.isRequired,
-    enableSignUpWithOffice365: PropTypes.bool.isRequired,
-    enableLDAP: PropTypes.bool.isRequired,
-    enableSAML: PropTypes.bool.isRequired,
-    samlLoginButtonText: PropTypes.string,
-    siteName: PropTypes.string,
-};

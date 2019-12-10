@@ -3,15 +3,22 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import {defineMessages, FormattedMessage, injectIntl, intlShape} from 'react-intl';
+import {defineMessages, FormattedMessage, injectIntl} from 'react-intl';
 
 import * as utils from 'utils/utils.jsx';
+import {intlShape} from 'utils/react_intl';
+import {t} from 'utils/i18n';
 
-import SettingUpload from './setting_upload.jsx';
+import LoadingSpinner from 'components/widgets/loading/loading_spinner';
+
+import BackIcon from 'components/widgets/icons/fa_back_icon';
+import SettingUpload from 'components/setting_upload.jsx';
+import SuccessIcon from 'components/widgets/icons/fa_success_icon';
+import WarningIcon from 'components/widgets/icons/fa_warning_icon';
 
 const holders = defineMessages({
     importSlack: {
-        id: 'team_import_tab.importSlack',
+        id: t('team_import_tab.importSlack'),
         defaultMessage: 'Import from Slack (Beta)',
     },
 });
@@ -20,25 +27,21 @@ class TeamImportTab extends React.Component {
     constructor(props) {
         super(props);
 
-        this.onImportFailure = this.onImportFailure.bind(this);
-        this.onImportSuccess = this.onImportSuccess.bind(this);
-        this.doImportSlack = this.doImportSlack.bind(this);
-
         this.state = {
             status: 'ready',
             link: '',
         };
     }
 
-    onImportFailure() {
+    onImportFailure = () => {
         this.setState({status: 'fail'});
     }
 
-    onImportSuccess(data) {
+    onImportSuccess = (data) => {
         this.setState({status: 'done', link: 'data:application/octet-stream;charset=utf-8,' + encodeURIComponent(atob(data.results))});
     }
 
-    doImportSlack(file) {
+    doImportSlack = (file) => {
         this.setState({status: 'in-progress', link: ''});
         utils.importSlack(file, this.onImportSuccess, this.onImportFailure);
     }
@@ -149,24 +152,14 @@ class TeamImportTab extends React.Component {
         case 'in-progress':
             messageSection = (
                 <p className='confirm-import alert alert-warning'>
-                    <i
-                        className='fa fa-spinner fa-pulse'
-                        title={utils.localizeMessage('generic_icons.loading', 'Loading Icon')}
-                    />
-                    <FormattedMessage
-                        id='team_import_tab.importing'
-                        defaultMessage=' Importing...'
-                    />
+                    <LoadingSpinner text={utils.localizeMessage('team_import_tab.importing', 'Importing...')}/>
                 </p>
             );
             break;
         case 'done':
             messageSection = (
                 <p className='confirm-import alert alert-success'>
-                    <i
-                        className='fa fa-check'
-                        title={utils.localizeMessage('generic_icons.success', 'Success Icon')}
-                    />
+                    <SuccessIcon/>
                     <FormattedMessage
                         id='team_import_tab.successful'
                         defaultMessage=' Import successful: '
@@ -186,10 +179,7 @@ class TeamImportTab extends React.Component {
         case 'fail':
             messageSection = (
                 <p className='confirm-import alert alert-warning'>
-                    <i
-                        className='fa fa-warning'
-                        title={utils.localizeMessage('generic_icons.warning', 'Warning Icon')}
-                    />
+                    <WarningIcon/>
                     <FormattedMessage
                         id='team_import_tab.failure'
                         defaultMessage=' Import failure: '
@@ -225,11 +215,9 @@ class TeamImportTab extends React.Component {
                         ref='title'
                     >
                         <div className='modal-back'>
-                            <i
-                                className='fa fa-angle-left'
-                                onClick={this.props.collapseModal}
-                                title={utils.localizeMessage('generic_icons.back', 'Back Icon')}
-                            />
+                            <span onClick={this.props.collapseModal}>
+                                <BackIcon/>
+                            </span>
                         </div>
                         <FormattedMessage
                             id='team_import_tab.import'

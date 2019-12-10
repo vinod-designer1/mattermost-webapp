@@ -6,25 +6,23 @@ import React from 'react';
 import {Route, Switch} from 'react-router-dom';
 import iNoBounce from 'inobounce';
 
-import {loadStatusesForChannelAndSidebar, startPeriodicStatusUpdates, stopPeriodicStatusUpdates} from 'actions/status_actions.jsx';
+import {startPeriodicStatusUpdates, stopPeriodicStatusUpdates} from 'actions/status_actions.jsx';
 import {startPeriodicSync, stopPeriodicSync, reconnect} from 'actions/websocket_actions.jsx';
 import * as GlobalActions from 'actions/global_actions.jsx';
-import Constants from 'utils/constants.jsx';
-import * as UserAgent from 'utils/user_agent.jsx';
+import Constants from 'utils/constants';
+import * as UserAgent from 'utils/user_agent';
 import * as Utils from 'utils/utils.jsx';
-import {loadProfilesForSidebar} from 'actions/user_actions.jsx';
 import {makeAsyncComponent} from 'components/async_load';
-import loadBackstageController from 'bundle-loader?lazy!components/backstage';
+const LazyBackstageController = React.lazy(() => import('components/backstage'));
 import ChannelController from 'components/channel_layout/channel_controller';
 
-const BackstageController = makeAsyncComponent(loadBackstageController);
+const BackstageController = makeAsyncComponent(LazyBackstageController);
 
 let wakeUpInterval;
-let lastTime = (new Date()).getTime();
+let lastTime = Date.now();
 const WAKEUP_CHECK_INTERVAL = 30000; // 30 seconds
 const WAKEUP_THRESHOLD = 60000; // 60 seconds
 const UNREAD_CHECK_TIME_MILLISECONDS = 10000;
-const TEAMS_PER_PAGE = 200;
 
 export default class NeedsTeam extends React.Component {
     static propTypes = {
@@ -32,16 +30,17 @@ export default class NeedsTeam extends React.Component {
         currentUser: PropTypes.object,
         currentChannelId: PropTypes.string,
         currentTeamId: PropTypes.string,
-        teamsList: PropTypes.array,
         actions: PropTypes.shape({
             fetchMyChannelsAndMembers: PropTypes.func.isRequired,
             getMyTeamUnreads: PropTypes.func.isRequired,
             viewChannel: PropTypes.func.isRequired,
-            markChannelAsRead: PropTypes.func.isRequired,
-            getTeams: PropTypes.func.isRequired,
-            joinTeam: PropTypes.func.isRequired,
+            markChannelAsReadOnFocus: PropTypes.func.isRequired,
+            getTeamByName: PropTypes.func.isRequired,
+            addUserToTeam: PropTypes.func.isRequired,
             selectTeam: PropTypes.func.isRequired,
-            setGlobalItem: PropTypes.func.isRequired,
+            setPreviousTeamId: PropTypes.func.isRequired,
+            loadStatusesForChannelAndSidebar: PropTypes.func.isRequired,
+            loadProfilesForDirect: PropTypes.func.isRequired,
         }).isRequired,
         theme: PropTypes.object.isRequired,
         mfaRequired: PropTypes.bool.isRequired,
@@ -149,19 +148,19 @@ export default class NeedsTeam extends React.Component {
     }
 
     handleFocus = () => {
-        this.props.actions.markChannelAsRead(this.props.currentChannelId);
+        this.props.actions.markChannelAsReadOnFocus(this.props.currentChannelId);
         window.isActive = true;
 
-        if (new Date().getTime() - this.blurTime > UNREAD_CHECK_TIME_MILLISECONDS) {
-            this.props.actions.fetchMyChannelsAndMembers(this.props.currentTeamId).then(loadProfilesForSidebar);
+        if (Date.now() - this.blurTime > UNREAD_CHECK_TIME_MILLISECONDS) {
+            this.props.actions.fetchMyChannelsAndMembers(this.props.currentTeamId);
+            this.props.actions.loadProfilesForDirect();
         }
     }
 
     joinTeam = async (props) => {
-        const openTeams = await this.props.actions.getTeams(0, TEAMS_PER_PAGE);
-        const team = openTeams.data.find((teamObj) => teamObj.name === props.match.params.team);
+        const {data: team} = await this.props.actions.getTeamByName(props.match.params.team);
         if (team) {
-            const {error} = await props.actions.joinTeam(team.invite_id, team.id);
+            const {error} = await props.actions.addUserToTeam(team.id, props.currentUser && props.currentUser.id);
             if (error) {
                 props.history.push('/error?type=team_not_found');
             } else {
@@ -178,9 +177,12 @@ export default class NeedsTeam extends React.Component {
         // The first load action pulls team unreads
         this.props.actions.getMyTeamUnreads();
         this.props.actions.selectTeam(team);
-        this.props.actions.setGlobalItem('team', team.id);
+        this.props.actions.setPreviousTeamId(team.id);
         GlobalActions.emitCloseRightHandSide();
 
+        if (Utils.isGuest(this.props.currentUser)) {
+            this.setState({finishedFetchingChannels: false});
+        }
         this.props.actions.fetchMyChannelsAndMembers(team.id).then(
             () => {
                 this.setState({
@@ -189,8 +191,8 @@ export default class NeedsTeam extends React.Component {
             }
         );
 
-        loadStatusesForChannelAndSidebar();
-        loadProfilesForSidebar();
+        this.props.actions.loadStatusesForChannelAndSidebar();
+        this.props.actions.loadProfilesForDirect();
 
         return team;
     }
@@ -226,7 +228,7 @@ export default class NeedsTeam extends React.Component {
     }
 
     render() {
-        if (this.state.team === null || this.state.finishedFetchingChannels === false) {
+        if (this.state.team === null) {
             return <div/>;
         }
         const teamType = this.state.team ? this.state.team.type : '';
@@ -246,6 +248,7 @@ export default class NeedsTeam extends React.Component {
                         <ChannelController
                             pathName={renderProps.location.pathname}
                             teamType={teamType}
+                            fetchingChannels={!this.state.finishedFetchingChannels}
                         />
                     )}
                 />

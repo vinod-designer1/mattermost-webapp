@@ -20,9 +20,13 @@ const pl = require('./pl.json');
 
 const ptBR = require('./pt-BR.json');
 
-const tr = require('./tr.json');
+const ro = require('./ro.json');
 
 const ru = require('./ru.json');
+
+const tr = require('./tr.json');
+
+const uk = require('./uk.json');
 
 const zhTW = require('./zh-TW.json');
 
@@ -39,8 +43,10 @@ import koLocaleData from 'react-intl/locale-data/ko';
 import nlLocaleData from 'react-intl/locale-data/nl';
 import plLocaleData from 'react-intl/locale-data/pl';
 import ptLocaleData from 'react-intl/locale-data/pt';
-import trLocaleData from 'react-intl/locale-data/tr';
+import roLocaleData from 'react-intl/locale-data/ro';
 import ruLocaleData from 'react-intl/locale-data/ru';
+import trLocaleData from 'react-intl/locale-data/tr';
+import ukLocaleData from 'react-intl/locale-data/uk';
 import zhLocaleData from 'react-intl/locale-data/zh';
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
@@ -81,13 +87,13 @@ const languages = {
     ja: {
         value: 'ja',
         name: '日本語',
-        order: 13,
+        order: 15,
         url: ja,
     },
     ko: {
         value: 'ko',
         name: '한국어 (Alpha)',
-        order: 10,
+        order: 12,
         url: ko,
     },
     nl: {
@@ -98,7 +104,7 @@ const languages = {
     },
     pl: {
         value: 'pl',
-        name: 'Polski (Alpha)',
+        name: 'Polski',
         order: 6,
         url: pl,
     },
@@ -108,28 +114,40 @@ const languages = {
         order: 7,
         url: ptBR,
     },
-    tr: {
-        value: 'tr',
-        name: 'Türkçe',
+    ro: {
+        value: 'ro',
+        name: 'Română',
         order: 8,
-        url: tr,
+        url: ro,
     },
     ru: {
         value: 'ru',
         name: 'Pусский (Alpha)',
-        order: 9,
+        order: 10,
         url: ru,
+    },
+    tr: {
+        value: 'tr',
+        name: 'Türkçe',
+        order: 9,
+        url: tr,
+    },
+    uk: {
+        value: 'uk',
+        name: 'Yкраїнська (Alpha)',
+        order: 11,
+        url: uk,
     },
     'zh-TW': {
         value: 'zh-TW',
         name: '中文 (繁體)',
-        order: 12,
+        order: 14,
         url: zhTW,
     },
     'zh-CN': {
         value: 'zh-CN',
         name: '中文 (简体)',
-        order: 11,
+        order: 13,
         url: zhCN,
     },
 };
@@ -143,8 +161,12 @@ export function getLanguages() {
     if (!config.AvailableLocales) {
         return getAllLanguages();
     }
-
-    return config.AvailableLocales.split(',').filter((l) => languages[l]).map((l) => languages[l]);
+    return config.AvailableLocales.split(',').reduce((result, l) => {
+        if (languages[l]) {
+            result[l] = languages[l];
+        }
+        return result;
+    }, {});
 }
 
 export function getLanguageInfo(locale) {
@@ -153,41 +175,6 @@ export function getLanguageInfo(locale) {
 
 export function isLanguageAvailable(locale) {
     return Boolean(getLanguages()[locale]);
-}
-
-export function safariFix(callback) {
-    require.ensure([
-        'intl',
-        'intl/locale-data/jsonp/de.js',
-        'intl/locale-data/jsonp/en.js',
-        'intl/locale-data/jsonp/es.js',
-        'intl/locale-data/jsonp/fr.js',
-        'intl/locale-data/jsonp/it.js',
-        'intl/locale-data/jsonp/ja.js',
-        'intl/locale-data/jsonp/ko.js',
-        'intl/locale-data/jsonp/nl.js',
-        'intl/locale-data/jsonp/pl.js',
-        'intl/locale-data/jsonp/pt.js',
-        'intl/locale-data/jsonp/tr.js',
-        'intl/locale-data/jsonp/ru.js',
-        'intl/locale-data/jsonp/zh.js',
-    ], (require) => {
-        require('intl');
-        require('intl/locale-data/jsonp/de.js');
-        require('intl/locale-data/jsonp/en.js');
-        require('intl/locale-data/jsonp/es.js');
-        require('intl/locale-data/jsonp/fr.js');
-        require('intl/locale-data/jsonp/it.js');
-        require('intl/locale-data/jsonp/ja.js');
-        require('intl/locale-data/jsonp/ko.js');
-        require('intl/locale-data/jsonp/nl.js');
-        require('intl/locale-data/jsonp/pl.js');
-        require('intl/locale-data/jsonp/pt.js');
-        require('intl/locale-data/jsonp/tr.js');
-        require('intl/locale-data/jsonp/ru.js');
-        require('intl/locale-data/jsonp/zh.js');
-        callback();
-    });
 }
 
 export function doAddLocaleData() {
@@ -201,7 +188,9 @@ export function doAddLocaleData() {
     addLocaleData(nlLocaleData);
     addLocaleData(plLocaleData);
     addLocaleData(ptLocaleData);
-    addLocaleData(trLocaleData);
+    addLocaleData(roLocaleData);
     addLocaleData(ruLocaleData);
+    addLocaleData(trLocaleData);
+    addLocaleData(ukLocaleData);
     addLocaleData(zhLocaleData);
 }

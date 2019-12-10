@@ -3,11 +3,12 @@
 
 import $ from 'jquery';
 import React from 'react';
-import {Popover} from 'react-bootstrap';
 import ReactDOM from 'react-dom';
 import {FormattedMessage} from 'react-intl';
 
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
+
+import Popover from 'components/widgets/popover';
 
 import SuggestionList from './suggestion_list.jsx';
 
@@ -15,6 +16,34 @@ export default class SearchSuggestionList extends SuggestionList {
     static propTypes = {
         ...SuggestionList.propTypes,
     };
+
+    constructor(props) {
+        super(props);
+        this.suggestionReadOut = React.createRef();
+    }
+
+    generateLabel(item) {
+        if (item.username) {
+            this.currentLabel = item.username;
+            if ((item.first_name || item.last_name) && item.nickname) {
+                this.currentLabel += ` ${item.first_name} ${item.last_name} ${item.nickname}`;
+            } else if (item.nickname) {
+                this.currentLabel += ` ${item.nickname}`;
+            } else if (item.first_name || item.last_name) {
+                this.currentLabel += ` ${item.first_name} ${item.last_name}`;
+            }
+        } else if (item.type === Constants.DM_CHANNEL || item.type === Constants.GM_CHANNEL) {
+            this.currentLabel = item.display_name;
+        } else {
+            this.currentLabel = item.name;
+        }
+
+        if (this.currentLabel) {
+            this.currentLabel = this.currentLabel.toLowerCase();
+        }
+
+        this.announceLabel();
+    }
 
     getContent() {
         return $(ReactDOM.findDOMNode(this.refs.popover)).find('.popover-content');
@@ -29,11 +58,18 @@ export default class SearchSuggestionList extends SuggestionList {
                     defaultMessage='Public Channels'
                 />
             );
-        } else {
+        } else if (type === Constants.PRIVATE_CHANNEL) {
             text = (
                 <FormattedMessage
                     id='suggestion.search.private'
                     defaultMessage='Private Channels'
+                />
+            );
+        } else {
+            text = (
+                <FormattedMessage
+                    id='suggestion.search.direct'
+                    defaultMessage='Direct Messages'
                 />
             );
         }
@@ -49,26 +85,34 @@ export default class SearchSuggestionList extends SuggestionList {
     }
 
     render() {
-        if (this.state.items.length === 0) {
+        if (this.props.items.length === 0) {
             return null;
         }
 
         const items = [];
-        for (let i = 0; i < this.state.items.length; i++) {
-            const item = this.state.items[i];
-            const term = this.state.terms[i];
-            const isSelection = term === this.state.selection;
+        for (let i = 0; i < this.props.items.length; i++) {
+            const item = this.props.items[i];
+            const term = this.props.terms[i];
+            const isSelection = term === this.props.selection;
 
             // ReactComponent names need to be upper case when used in JSX
-            const Component = this.state.components[i];
+            const Component = this.props.components[i];
 
             // temporary hack to add dividers between public and private channels in the search suggestion list
-            if (i === 0 || item.type !== this.state.items[i - 1].type) {
-                if (item.type === Constants.OPEN_CHANNEL) {
-                    items.push(this.renderChannelDivider(Constants.OPEN_CHANNEL));
-                } else if (item.type === Constants.PRIVATE_CHANNEL) {
-                    items.push(this.renderChannelDivider(Constants.PRIVATE_CHANNEL));
+            if (this.props.renderDividers) {
+                if (i === 0 || item.type !== this.props.items[i - 1].type) {
+                    if (item.type === Constants.OPEN_CHANNEL) {
+                        items.push(this.renderChannelDivider(Constants.OPEN_CHANNEL));
+                    } else if (item.type === Constants.PRIVATE_CHANNEL) {
+                        items.push(this.renderChannelDivider(Constants.PRIVATE_CHANNEL));
+                    } else if (i === 0 || this.props.items[i - 1].type === Constants.OPEN_CHANNEL || this.props.items[i - 1].type === Constants.PRIVATE_CHANNEL) {
+                        items.push(this.renderChannelDivider(Constants.DM_CHANNEL));
+                    }
                 }
+            }
+
+            if (isSelection) {
+                this.currentItem = item;
             }
 
             items.push(
@@ -77,10 +121,10 @@ export default class SearchSuggestionList extends SuggestionList {
                     ref={term}
                     item={item}
                     term={term}
-                    matchedPretext={this.state.matchedPretext[i]}
+                    matchedPretext={this.props.matchedPretext[i]}
                     isSelection={isSelection}
                     onClick={this.props.onCompleteWord}
-                />
+                />,
             );
         }
 
@@ -91,6 +135,11 @@ export default class SearchSuggestionList extends SuggestionList {
                 className='search-help-popover autocomplete visible'
                 placement='bottom'
             >
+                <div
+                    ref={this.suggestionReadOut}
+                    aria-live='polite'
+                    className='hidden-label'
+                />
                 {items}
             </Popover>
         );

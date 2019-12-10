@@ -4,8 +4,8 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
+import {getEmojiImageUrl} from 'mattermost-redux/utils/emoji_utils';
 
-import EmojiStore from 'stores/emoji_store.jsx';
 import imgTrans from 'images/img_trans.gif';
 
 export default class EmojiPickerPreview extends React.Component {
@@ -29,6 +29,8 @@ export default class EmojiPickerPreview extends React.Component {
                 previewImage = (
                     <span className='sprite-preview'>
                         <img
+                            id='emojiPickerSpritePreview'
+                            alt={'emoji category image'}
                             src={imgTrans}
                             className={'emojisprite-preview emoji-category-' + emoji.category + '-' + emoji.batch + ' emoji-' + emoji.filename}
                         />
@@ -40,8 +42,10 @@ export default class EmojiPickerPreview extends React.Component {
                 aliases = [emoji.name];
                 previewImage = (
                     <img
+                        id='emojiPickerSpritePreview'
+                        alt={'emoji preview image'}
                         className='emoji-picker__preview-image'
-                        src={EmojiStore.getEmojiImageUrl(emoji)}
+                        src={getEmojiImageUrl(emoji)}
                     />
                 );
             }
@@ -53,7 +57,10 @@ export default class EmojiPickerPreview extends React.Component {
                     </div>
                     <div className='emoji-picker__preview-image-label-box'>
                         <span className='emoji-picker__preview-name'>{name}</span>
-                        <span className='emoji-picker__preview-aliases'>
+                        <span
+                            id='emojiPickerAliasesPreview'
+                            className='emoji-picker__preview-aliases'
+                        >
                             {':' + aliases[0] + ':'}
                         </span>
                     </div>

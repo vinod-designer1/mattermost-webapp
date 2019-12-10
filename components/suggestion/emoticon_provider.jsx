@@ -4,21 +4,20 @@
 import React from 'react';
 
 import {autocompleteCustomEmojis} from 'mattermost-redux/actions/emojis';
+import {getEmojiImageUrl} from 'mattermost-redux/utils/emoji_utils';
 
-import {getEmojiMap} from 'selectors/emojis';
+import {getEmojiMap, getRecentEmojis} from 'selectors/emojis';
 
-import EmojiStore from 'stores/emoji_store.jsx';
 import store from 'stores/redux_store.jsx';
-import SuggestionStore from 'stores/suggestion_store.jsx';
 
-import AppDispatcher from 'dispatcher/app_dispatcher.jsx';
-import * as Emoticons from 'utils/emoticons.jsx';
-import {ActionTypes} from 'utils/constants.jsx';
+import * as Emoticons from 'utils/emoticons';
+import {compareEmojis} from 'utils/emoji_utils.jsx';
 
 import Suggestion from './suggestion.jsx';
+import Provider from './provider.jsx';
 
-const MIN_EMOTICON_LENGTH = 2;
-const EMOJI_CATEGORY_SUGGESTION_BLACKLIST = ['skintone'];
+export const MIN_EMOTICON_LENGTH = 2;
+export const EMOJI_CATEGORY_SUGGESTION_BLACKLIST = ['skintone'];
 
 class EmoticonSuggestion extends Suggestion {
     render() {
@@ -34,12 +33,13 @@ class EmoticonSuggestion extends Suggestion {
             <div
                 className={className}
                 onClick={this.handleClick}
+                {...Suggestion.baseProps}
             >
                 <div className='pull-left'>
                     <img
                         alt={text}
                         className='emoticon-suggestion__image'
-                        src={EmojiStore.getEmojiImageUrl(emoji)}
+                        src={getEmojiImageUrl(emoji)}
                         title={text}
                     />
                 </div>
@@ -51,8 +51,8 @@ class EmoticonSuggestion extends Suggestion {
     }
 }
 
-export default class EmoticonProvider {
-    handlePretextChanged(suggestionId, pretext) {
+export default class EmoticonProvider extends Provider {
+    handlePretextChanged(pretext, resultsCallback) {
         // Look for the potential emoticons at the start of the text, after whitespace, and at the start of emoji reaction commands
         const captured = (/(^|\s|^\+|^-)(:([^:\s]*))$/g).exec(pretext);
         if (!captured) {
@@ -64,7 +64,6 @@ export default class EmoticonProvider {
         const partialName = captured[3];
 
         if (partialName.length < MIN_EMOTICON_LENGTH) {
-            SuggestionStore.clearSuggestions(suggestionId);
             return false;
         }
 
@@ -79,69 +78,93 @@ export default class EmoticonProvider {
         }
 
         if (store.getState().entities.general.config.EnableCustomEmoji === 'true') {
-            autocompleteCustomEmojis(partialName)(store.dispatch, store.getState).then(() => this.findAndSuggestEmojis(suggestionId, text, partialName));
+            store.dispatch(autocompleteCustomEmojis(partialName)).then(() => this.findAndSuggestEmojis(text, partialName, resultsCallback));
+        } else {
+            this.findAndSuggestEmojis(text, partialName, resultsCallback);
         }
-
-        this.findAndSuggestEmojis(suggestionId, text, partialName);
 
         return true;
     }
 
-    findAndSuggestEmojis(suggestionId, text, partialName) {
+    formatEmojis(emojis) {
+        return emojis.map((item) => ':' + item.name + ':');
+    }
+
+    // findAndSuggestEmojis uses the provided partialName to match anywhere inside an emoji name.
+    //
+    // For example, typing `:welc` would match both `:welcome:` and `:youre_welcome:` if those
+    // emojis are present in the local store. Note, however, that the server only does prefix
+    // matches, so a query to populate the local store for `:welc` would only return `:welcome:`.
+    // This results in surprising differences between a fresh load of the application, and the
+    // changes to the cache from expanding the cache with emojis found in existing posts.
+    //
+    // For now, this behaviour and difference is by design.
+    // See https://mattermost.atlassian.net/browse/MM-17320.
+    findAndSuggestEmojis(text, partialName, resultsCallback) {
+        const recentMatched = [];
         const matched = [];
 
         const emojiMap = getEmojiMap(store.getState());
+        const recentEmojis = getRecentEmojis(store.getState());
 
         // Check for named emoji
         for (const [name, emoji] of emojiMap) {
+            if (EMOJI_CATEGORY_SUGGESTION_BLACKLIST.includes(emoji.category)) {
+                continue;
+            }
+
             if (emoji.aliases) {
                 // This is a system emoji so it may have multiple names
                 for (const alias of emoji.aliases) {
-                    if (!EMOJI_CATEGORY_SUGGESTION_BLACKLIST.includes(emoji.category) && alias.indexOf(partialName) !== -1) {
-                        matched.push({name: alias, emoji});
+                    if (alias.indexOf(partialName) !== -1) {
+                        const matchedArray = recentEmojis.includes(alias) || recentEmojis.includes(name) ?
+                            recentMatched :
+                            matched;
+
+                        matchedArray.push({name: alias, emoji});
                         break;
                     }
                 }
             } else if (name.indexOf(partialName) !== -1) {
                 // This is a custom emoji so it only has one name
-                if (EmojiStore.hasSystemEmoji(name)) {
+                if (emojiMap.hasSystemEmoji(name)) {
                     // System emojis take precedence over custom ones
                     continue;
                 }
 
-                matched.push({name, emoji});
+                const matchedArray = recentEmojis.includes(name) ?
+                    recentMatched :
+                    matched;
+
+                matchedArray.push({name, emoji});
             }
         }
 
-        // Sort the emoticons so that emoticons starting with the entered text come first
-        matched.sort((a, b) => {
-            const aName = a.name;
-            const bName = b.name;
+        const sortEmojisHelper = (a, b) => {
+            return compareEmojis(a, b, partialName);
+        };
 
-            const aPrefix = aName.startsWith(partialName);
-            const bPrefix = bName.startsWith(partialName);
+        recentMatched.sort(sortEmojisHelper);
 
-            if (aPrefix === bPrefix) {
-                return aName.localeCompare(bName);
-            } else if (aPrefix) {
-                return -1;
-            }
+        matched.sort(sortEmojisHelper);
 
-            return 1;
-        });
+        const terms = [
+            ...this.formatEmojis(recentMatched),
+            ...this.formatEmojis(matched),
+        ];
 
-        const terms = matched.map((item) => ':' + item.name + ':');
+        const items = [
+            ...recentMatched,
+            ...matched,
+        ];
 
         // Required to get past the dispatch during dispatch error
-        setTimeout(() => {
-            AppDispatcher.handleServerAction({
-                type: ActionTypes.SUGGESTION_RECEIVED_SUGGESTIONS,
-                id: suggestionId,
-                matchedPretext: text,
-                terms,
-                items: matched,
-                component: EmoticonSuggestion,
-            });
-        }, 0);
+
+        resultsCallback({
+            matchedPretext: text,
+            terms,
+            items,
+            component: EmoticonSuggestion,
+        });
     }
 }

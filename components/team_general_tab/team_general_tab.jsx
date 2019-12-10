@@ -6,11 +6,16 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import {FormattedMessage, FormattedDate} from 'react-intl';
 
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
 import SettingItemMax from 'components/setting_item_max.jsx';
-import SettingItemMin from 'components/setting_item_min.jsx';
+import SettingItemMin from 'components/setting_item_min';
 import SettingPicture from 'components/setting_picture.jsx';
+import BackIcon from 'components/widgets/icons/fa_back_icon';
+import LocalizedInput from 'components/localized_input/localized_input';
+import FormattedMarkdownMessage from 'components/formatted_markdown_message';
+
+import {t} from 'utils/i18n.jsx';
 
 const ACCEPTED_TEAM_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/bmp'];
 
@@ -23,7 +28,9 @@ export default class GeneralTab extends React.Component {
         collapseModal: PropTypes.func.isRequired,
         maxFileSize: PropTypes.number.isRequired,
         actions: PropTypes.shape({
-            updateTeam: PropTypes.func.isRequired,
+            getTeam: PropTypes.func.isRequired,
+            patchTeam: PropTypes.func.isRequired,
+            regenerateTeamInviteId: PropTypes.func.isRequired,
             removeTeamIcon: PropTypes.func.isRequired,
             setTeamIcon: PropTypes.func.isRequired,
         }).isRequired,
@@ -32,29 +39,10 @@ export default class GeneralTab extends React.Component {
 
     constructor(props) {
         super(props);
-
-        this.updateSection = this.updateSection.bind(this);
-        this.handleNameSubmit = this.handleNameSubmit.bind(this);
-        this.handleInviteIdSubmit = this.handleInviteIdSubmit.bind(this);
-        this.handleOpenInviteSubmit = this.handleOpenInviteSubmit.bind(this);
-        this.handleDescriptionSubmit = this.handleDescriptionSubmit.bind(this);
-        this.handleTeamIconSubmit = this.handleTeamIconSubmit.bind(this);
-        this.handleClose = this.handleClose.bind(this);
-
-        this.updateName = this.updateName.bind(this);
-        this.updateDescription = this.updateDescription.bind(this);
-        this.updateTeamIcon = this.updateTeamIcon.bind(this);
-        this.updateInviteId = this.updateInviteId.bind(this);
-        this.handleOpenInviteRadio = this.handleOpenInviteRadio.bind(this);
-        this.handleGenerateInviteId = this.handleGenerateInviteId.bind(this);
-
         this.state = this.setupInitialState(props);
     }
 
-    updateSection(section) {
-        if ($('.section-max').length) {
-            $('.settings-modal .modal-body').scrollTop(0).perfectScrollbar('update');
-        }
+    updateSection = (section) => {
         this.setState(this.setupInitialState(this.props));
         this.props.updateSection(section);
     }
@@ -67,6 +55,7 @@ export default class GeneralTab extends React.Component {
             invite_id: team.invite_id,
             allow_open_invite: team.allow_open_invite,
             description: team.description,
+            allowed_domains: team.allowed_domains,
             serverError: '',
             clientError: '',
             teamIconFile: null,
@@ -79,24 +68,51 @@ export default class GeneralTab extends React.Component {
         this.setState({
             name: nextProps.team.display_name,
             description: nextProps.team.description,
+            allowed_domains: nextProps.team.allowed_domains,
             invite_id: nextProps.team.invite_id,
             allow_open_invite: nextProps.team.allow_open_invite,
         });
     }
 
-    handleGenerateInviteId(e) {
-        e.preventDefault();
-
-        var newId = '';
-        for (var i = 0; i < 32; i++) {
-            newId += Math.floor(Math.random() * 16).toString(16);
+    componentDidUpdate(prevProps, prevState) {
+        if (!prevState.shouldFetchTeam && this.state.shouldFetchTeam) {
+            this.fetchTeam();
         }
-
-        this.setState({invite_id: newId});
     }
 
-    handleOpenInviteRadio(openInvite) {
+    fetchTeam() {
+        if (this.state.serverError) {
+            return;
+        }
+        this.props.actions.getTeam(this.props.team.id).then(({error}) => {
+            const state = {
+                shouldFetchTeam: false,
+            };
+            if (error) {
+                state.serverError = error.message;
+            }
+            this.setState(state);
+        });
+    }
+
+    handleOpenInviteRadio = (openInvite) => {
         this.setState({allow_open_invite: openInvite});
+    }
+
+    handleAllowedDomainsSubmit = async () => {
+        var state = {serverError: '', clientError: ''};
+
+        var data = {...this.props.team};
+        data.allowed_domains = this.state.allowed_domains;
+
+        const {error} = await this.props.actions.patchTeam(data);
+
+        if (error) {
+            state.serverError = error.message;
+            this.setState(state);
+        } else {
+            this.updateSection('');
+        }
     }
 
     handleOpenInviteSubmit = async () => {
@@ -105,7 +121,7 @@ export default class GeneralTab extends React.Component {
         var data = {...this.props.team};
         data.allow_open_invite = this.state.allow_open_invite;
 
-        const {error} = await this.props.actions.updateTeam(data);
+        const {error} = await this.props.actions.patchTeam(data);
 
         if (error) {
             state.serverError = error.message;
@@ -150,7 +166,7 @@ export default class GeneralTab extends React.Component {
         var data = {...this.props.team};
         data.display_name = this.state.name;
 
-        const {error} = await this.props.actions.updateTeam(data);
+        const {error} = await this.props.actions.patchTeam(data);
 
         if (error) {
             state.serverError = error.message;
@@ -161,27 +177,10 @@ export default class GeneralTab extends React.Component {
     }
 
     handleInviteIdSubmit = async () => {
-        var state = {serverError: '', clientError: ''};
-        let valid = true;
-
-        const inviteId = this.state.invite_id.trim();
-        if (inviteId) {
-            state.clientError = '';
-        } else {
-            state.clientError = Utils.localizeMessage('general_tab.required', 'This field is required');
-            valid = false;
-        }
-
+        const state = {serverError: '', clientError: ''};
         this.setState(state);
 
-        if (!valid) {
-            return;
-        }
-
-        var data = {...this.props.team};
-        data.invite_id = this.state.invite_id;
-
-        const {error} = await this.props.actions.updateTeam(data);
+        const {error} = await this.props.actions.regenerateTeamInviteId(this.props.team.id);
 
         if (error) {
             state.serverError = error.message;
@@ -191,7 +190,7 @@ export default class GeneralTab extends React.Component {
         }
     }
 
-    handleClose() {
+    handleClose = () => {
         this.updateSection('');
     }
 
@@ -216,7 +215,7 @@ export default class GeneralTab extends React.Component {
         var data = {...this.props.team};
         data.description = this.state.description;
 
-        const {error} = await this.props.actions.updateTeam(data);
+        const {error} = await this.props.actions.patchTeam(data);
 
         if (error) {
             state.serverError = error.message;
@@ -226,9 +225,7 @@ export default class GeneralTab extends React.Component {
         }
     }
 
-    handleTeamIconSubmit = async (e) => {
-        e.preventDefault();
-
+    handleTeamIconSubmit = async () => {
         if (!this.state.teamIconFile) {
             return;
         }
@@ -259,9 +256,7 @@ export default class GeneralTab extends React.Component {
         }
     }
 
-    handleTeamIconRemove = async (e) => {
-        e.preventDefault();
-
+    handleTeamIconRemove = async () => {
         this.setState({
             loadingIcon: true,
             clientError: '',
@@ -293,18 +288,25 @@ export default class GeneralTab extends React.Component {
     }
 
     handleUpdateSection = (section) => {
+        if (section === 'invite_id' && this.props.activeSection !== section && !this.props.team.invite_id) {
+            this.setState({shouldFetchTeam: true}, () => {
+                this.updateSection(section);
+            });
+            return;
+        }
+
         this.updateSection(section);
     }
 
-    updateName(e) {
+    updateName = (e) => {
         this.setState({name: e.target.value});
     }
 
-    updateDescription(e) {
+    updateDescription = (e) => {
         this.setState({description: e.target.value});
     }
 
-    updateTeamIcon(e) {
+    updateTeamIcon = (e) => {
         if (e && e.target && e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
 
@@ -326,13 +328,13 @@ export default class GeneralTab extends React.Component {
         } else {
             this.setState({
                 teamIconFile: null,
-                clientError: Utils.localizeMessage('general_tab.teamIconError', 'An error occured while selecting the image.'),
+                clientError: Utils.localizeMessage('general_tab.teamIconError', 'An error occurred while selecting the image.'),
             });
         }
     }
 
-    updateInviteId(e) {
-        this.setState({invite_id: e.target.value});
+    updateAllowedDomains = (e) => {
+        this.setState({allowed_domains: e.target.value});
     }
 
     render() {
@@ -350,49 +352,69 @@ export default class GeneralTab extends React.Component {
 
         let openInviteSection;
         if (this.props.activeSection === 'open_invite') {
-            const inputs = [
-                <div key='userOpenInviteOptions'>
-                    <div className='radio'>
-                        <label>
-                            <input
-                                id='teamOpenInvite'
-                                name='userOpenInviteOptions'
-                                type='radio'
-                                defaultChecked={this.state.allow_open_invite}
-                                onChange={this.handleOpenInviteRadio.bind(this, true)}
+            let inputs;
+
+            if (team.group_constrained) {
+                inputs = [
+                    <div key='userOpenInviteOptions'>
+                        <div>
+                            <FormattedMarkdownMessage
+                                id='team_settings.openInviteDescription.groupConstrained'
+                                defaultMessage='No, members of this team are added and removed by linked groups. [Learn More](!https://mattermost.com/pl/default-ldap-group-constrained-team-channel.html)'
                             />
+                        </div>
+                    </div>,
+                ];
+            } else {
+                inputs = [
+                    <fieldset key='userOpenInviteOptions'>
+                        <legend className='form-legend hidden-label'>
                             <FormattedMessage
-                                id='general_tab.yes'
-                                defaultMessage='Yes'
+                                id='team_settings.openInviteDescription.ariaLabel'
+                                defaultMessage='Invite Code'
                             />
-                        </label>
-                        <br/>
-                    </div>
-                    <div className='radio'>
-                        <label>
-                            <input
-                                id='teamOpenInviteNo'
-                                name='userOpenInviteOptions'
-                                type='radio'
-                                defaultChecked={!this.state.allow_open_invite}
-                                onChange={this.handleOpenInviteRadio.bind(this, false)}
-                            />
+                        </legend>
+                        <div className='radio'>
+                            <label>
+                                <input
+                                    id='teamOpenInvite'
+                                    name='userOpenInviteOptions'
+                                    type='radio'
+                                    defaultChecked={this.state.allow_open_invite}
+                                    onChange={this.handleOpenInviteRadio.bind(this, true)}
+                                />
+                                <FormattedMessage
+                                    id='general_tab.yes'
+                                    defaultMessage='Yes'
+                                />
+                            </label>
+                            <br/>
+                        </div>
+                        <div className='radio'>
+                            <label>
+                                <input
+                                    id='teamOpenInviteNo'
+                                    name='userOpenInviteOptions'
+                                    type='radio'
+                                    defaultChecked={!this.state.allow_open_invite}
+                                    onChange={this.handleOpenInviteRadio.bind(this, false)}
+                                />
+                                <FormattedMessage
+                                    id='general_tab.no'
+                                    defaultMessage='No'
+                                />
+                            </label>
+                            <br/>
+                        </div>
+                        <div className='margin-top x3'>
                             <FormattedMessage
-                                id='general_tab.no'
-                                defaultMessage='No'
+                                id='general_tab.openInviteDesc'
+                                defaultMessage='When allowed, a link to this team will be included on the landing page allowing anyone with an account to join this team.'
                             />
-                        </label>
-                        <br/>
-                    </div>
-                    <div>
-                        <br/>
-                        <FormattedMessage
-                            id='general_tab.openInviteDesc'
-                            defaultMessage='When allowed, a link to this team will be included on the landing page allowing anyone with an account to join this team.'
-                        />
-                    </div>
-                </div>,
-            ];
+                        </div>
+                    </fieldset>,
+                ];
+            }
 
             openInviteSection = (
                 <SettingItemMax
@@ -407,6 +429,8 @@ export default class GeneralTab extends React.Component {
             let describe = '';
             if (this.state.allow_open_invite === true) {
                 describe = Utils.localizeMessage('general_tab.yes', 'Yes');
+            } else if (team.group_constrained) {
+                describe = Utils.localizeMessage('team_settings.openInviteSetting.groupConstrained', 'No, members of this team are added and removed by linked groups.');
             } else {
                 describe = Utils.localizeMessage('general_tab.no', 'No');
             }
@@ -436,23 +460,11 @@ export default class GeneralTab extends React.Component {
                                 autoFocus={true}
                                 className='form-control'
                                 type='text'
-                                onChange={this.updateInviteId}
                                 value={this.state.invite_id}
                                 maxLength='32'
                                 onFocus={Utils.moveCursorToEnd}
+                                readOnly={true}
                             />
-                            <div className='padding-top x2'>
-                                <button
-                                    id='teamInviteIdRegenerate'
-                                    className='color--link style--none'
-                                    onClick={this.handleGenerateInviteId}
-                                >
-                                    <FormattedMessage
-                                        id='general_tab.regenerate'
-                                        defaultMessage='Regenerate'
-                                    />
-                                </button>
-                            </div>
                         </div>
                     </div>
                     <div className='setting-list__hint'>
@@ -482,6 +494,7 @@ export default class GeneralTab extends React.Component {
                     serverError={serverError}
                     clientError={clientError}
                     updateSection={this.handleUpdateSection}
+                    saveButtonText={Utils.localizeMessage('general_tab.regenerate', 'Regenerate')}
                 />
             );
         } else if (this.props.canInviteTeamMembers) {
@@ -671,7 +684,7 @@ export default class GeneralTab extends React.Component {
                 );
             } else {
                 minMessage = Utils.isMobile() ?
-                    Utils.localizeMessage('general_tab.teamIconEditHintMobile', 'Click to upload an image.') :
+                    Utils.localizeMessage('general_tab.teamIconEditHintMobile', 'Click to upload an image') :
                     Utils.localizeMessage('general_tab.teamIconEditHint', 'Click \'Edit\' to upload an image.');
             }
 
@@ -681,6 +694,67 @@ export default class GeneralTab extends React.Component {
                     describe={minMessage}
                     section={'team_icon'}
                     updateSection={this.handleUpdateSection}
+                />
+            );
+        }
+
+        let allowedDomainsSection;
+
+        if (this.props.activeSection === 'allowed_domains') {
+            const inputs = [];
+
+            inputs.push(
+                <div
+                    key='allowedDomainsSetting'
+                    className='form-group'
+                >
+                    <div className='col-sm-12'>
+                        <LocalizedInput
+                            id='allowedDomains'
+                            autoFocus={true}
+                            className='form-control'
+                            type='text'
+                            onChange={this.updateAllowedDomains}
+                            value={this.state.allowed_domains}
+                            onFocus={Utils.moveCursorToEnd}
+                            placeholder={{id: t('general_tab.AllowedDomainsExample'), defaultMessage: 'corp.mattermost.com, mattermost.org'}}
+                            aria-label={Utils.localizeMessage('general_tab.allowedDomains.ariaLabel', 'Allowed Domains')}
+                        />
+                    </div>
+                </div>
+            );
+
+            const allowedDomainsInfo = <span>{Utils.localizeMessage('general_tab.AllowedDomainsInfo', 'Users can only join the team if their email matches a specific domain (e.g. "mattermost.org") or list of comma-separated domains (e.g. "corp.mattermost.com, mattermost.org").')}</span>;
+
+            allowedDomainsSection = (
+                <SettingItemMax
+                    title={Utils.localizeMessage('general_tab.allowedDomains', 'Allow only users with a specific email domain to join this team')}
+                    inputs={inputs}
+                    submit={this.handleAllowedDomainsSubmit}
+                    serverError={serverError}
+                    clientError={clientError}
+                    updateSection={this.handleUpdateSection}
+                    extraInfo={allowedDomainsInfo}
+                />
+            );
+        } else {
+            let describemsg = '';
+            if (this.state.allowed_domains) {
+                describemsg = this.state.allowed_domains;
+            } else {
+                describemsg = (
+                    <FormattedMessage
+                        id='general_tab.allowedDomainsEdit'
+                        defaultMessage="Click 'Edit' to add an email domain whitelist."
+                    />
+                );
+            }
+            allowedDomainsSection = (
+                <SettingItemMin
+                    title={Utils.localizeMessage('general_tab.allowedDomains', 'allowedDomains')}
+                    describe={describemsg}
+                    updateSection={this.handleUpdateSection}
+                    section={'allowed_domains'}
                 />
             );
         }
@@ -703,11 +777,9 @@ export default class GeneralTab extends React.Component {
                         ref='title'
                     >
                         <div className='modal-back'>
-                            <i
-                                className='fa fa-angle-left'
-                                title={Utils.localizeMessage('generic_icons.back', 'Back Icon')}
-                                onClick={this.props.collapseModal}
-                            />
+                            <span onClick={this.props.collapseModal}>
+                                <BackIcon/>
+                            </span>
                         </div>
                         <FormattedMessage
                             id='general_tab.title'
@@ -731,10 +803,20 @@ export default class GeneralTab extends React.Component {
                     {descriptionSection}
                     <div className='divider-light'/>
                     {teamIconSection}
+                    {!team.group_constrained &&
+                        <>
+                            <div className='divider-light'/>
+                            {allowedDomainsSection}
+                        </>
+                    }
                     <div className='divider-light'/>
                     {openInviteSection}
-                    <div className='divider-light'/>
-                    {inviteSection}
+                    {!team.group_constrained &&
+                        <>
+                            <div className='divider-light'/>
+                            {inviteSection}
+                        </>
+                    }
                     <div className='divider-dark'/>
                 </div>
             </div>

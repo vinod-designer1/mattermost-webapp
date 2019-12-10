@@ -4,15 +4,12 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 
-import {loadProfilesAndTeamMembersAndChannelMembers, loadTeamMembersAndChannelMembersForProfilesList} from 'actions/user_actions.jsx';
-import {loadStatusesForProfilesList} from 'actions/status_actions.jsx';
-
-import Constants from 'utils/constants.jsx';
-import * as UserAgent from 'utils/user_agent.jsx';
+import Constants from 'utils/constants';
+import * as UserAgent from 'utils/user_agent';
 
 import ChannelMembersDropdown from 'components/channel_members_dropdown';
 import SearchableUserList from 'components/searchable_user_list/searchable_user_list_container.jsx';
-
+import LoadingScreen from 'components/loading_screen';
 const USERS_PER_PAGE = 50;
 
 export default class MemberListChannel extends React.PureComponent {
@@ -28,6 +25,9 @@ export default class MemberListChannel extends React.PureComponent {
             searchProfiles: PropTypes.func.isRequired,
             getChannelStats: PropTypes.func.isRequired,
             setModalSearchTerm: PropTypes.func.isRequired,
+            loadProfilesAndTeamMembersAndChannelMembers: PropTypes.func.isRequired,
+            loadStatusesForProfilesList: PropTypes.func.isRequired,
+            loadTeamMembersAndChannelMembersForProfilesList: PropTypes.func.isRequired,
         }).isRequired,
     }
 
@@ -42,37 +42,50 @@ export default class MemberListChannel extends React.PureComponent {
     }
 
     componentDidMount() {
-        loadProfilesAndTeamMembersAndChannelMembers(0, Constants.PROFILE_CHUNK_SIZE, this.props.currentTeamId, this.props.currentChannelId, this.loadComplete);
-        this.props.actions.getChannelStats(this.props.currentChannelId);
+        const {
+            actions,
+            currentChannelId,
+            currentTeamId,
+        } = this.props;
+
+        actions.loadProfilesAndTeamMembersAndChannelMembers(0, Constants.PROFILE_CHUNK_SIZE, currentTeamId, currentChannelId).then(({data}) => {
+            if (data) {
+                this.loadComplete();
+            }
+        });
+
+        actions.getChannelStats(currentChannelId);
     }
 
     componentWillUnmount() {
         this.props.actions.setModalSearchTerm('');
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (this.props.searchTerm !== nextProps.searchTerm) {
+    componentDidUpdate(prevProps) {
+        if (prevProps.searchTerm !== this.props.searchTerm) {
             clearTimeout(this.searchTimeoutId);
-            const searchTerm = nextProps.searchTerm;
+            const searchTerm = this.props.searchTerm;
 
             if (searchTerm === '') {
                 this.loadComplete();
-                this.searchTimeoutId = '';
+                this.searchTimeoutId = 0;
                 return;
             }
 
             const searchTimeoutId = setTimeout(
                 async () => {
-                    const {data} = await this.props.actions.searchProfiles(searchTerm, {team_id: nextProps.currentTeamId, in_channel_id: nextProps.currentChannelId});
+                    const {data} = await prevProps.actions.searchProfiles(searchTerm, {team_id: this.props.currentTeamId, in_channel_id: this.props.currentChannelId});
 
                     if (searchTimeoutId !== this.searchTimeoutId) {
                         return;
                     }
 
-                    this.setState({loading: true});
-
-                    loadStatusesForProfilesList(data);
-                    loadTeamMembersAndChannelMembersForProfilesList(data, nextProps.currentTeamId, nextProps.currentChannelId, this.loadComplete);
+                    this.props.actions.loadStatusesForProfilesList(data);
+                    this.props.actions.loadTeamMembersAndChannelMembersForProfilesList(data, this.props.currentTeamId, this.props.currentChannelId).then(({data: membersLoaded}) => {
+                        if (membersLoaded) {
+                            this.loadComplete();
+                        }
+                    });
                 },
                 Constants.SEARCH_TIMEOUT_MILLISECONDS
             );
@@ -85,8 +98,8 @@ export default class MemberListChannel extends React.PureComponent {
         this.setState({loading: false});
     }
 
-    nextPage(page) {
-        loadProfilesAndTeamMembersAndChannelMembers(page + 1, USERS_PER_PAGE);
+    nextPage = (page) => {
+        this.props.actions.loadProfilesAndTeamMembersAndChannelMembers(page + 1, USERS_PER_PAGE);
     }
 
     handleSearch = (term) => {
@@ -94,6 +107,10 @@ export default class MemberListChannel extends React.PureComponent {
     }
 
     render() {
+        if (this.state.loading) {
+            return (<LoadingScreen/>);
+        }
+        const channelIsArchived = this.props.channel.delete_at !== 0;
         return (
             <SearchableUserList
                 users={this.props.usersToDisplay}
@@ -101,7 +118,7 @@ export default class MemberListChannel extends React.PureComponent {
                 total={this.props.totalChannelMembers}
                 nextPage={this.nextPage}
                 search={this.handleSearch}
-                actions={[ChannelMembersDropdown]}
+                actions={channelIsArchived ? [] : [ChannelMembersDropdown]}
                 actionUserProps={this.props.actionUserProps}
                 focusOnMount={!UserAgent.isMobile()}
             />

@@ -5,7 +5,7 @@ import {bindActionCreators} from 'redux';
 import {connect} from 'react-redux';
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
-import {updateTeam, removeTeamIcon, setTeamIcon} from 'mattermost-redux/actions/teams';
+import {getTeam, patchTeam, removeTeamIcon, setTeamIcon, regenerateTeamInviteId} from 'mattermost-redux/actions/teams';
 import {Permissions} from 'mattermost-redux/constants';
 import {haveITeamPermission} from 'mattermost-redux/selectors/entities/roles';
 
@@ -18,7 +18,6 @@ function mapStateToProps(state, ownProps) {
     const canInviteTeamMembers = haveITeamPermission(state, {team: ownProps.team.id, permission: Permissions.INVITE_USER});
 
     return {
-        ...ownProps,
         maxFileSize,
         canInviteTeamMembers,
     };
@@ -27,7 +26,9 @@ function mapStateToProps(state, ownProps) {
 function mapDispatchToProps(dispatch) {
     return {
         actions: bindActionCreators({
-            updateTeam,
+            getTeam,
+            patchTeam,
+            regenerateTeamInviteId,
             removeTeamIcon,
             setTeamIcon,
         }, dispatch),

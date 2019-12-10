@@ -5,16 +5,16 @@ import $ from 'jquery';
 import PropTypes from 'prop-types';
 import React from 'react';
 import {Modal} from 'react-bootstrap';
-import ReactDOM from 'react-dom';
 import {FormattedMessage} from 'react-intl';
-import {Permissions} from 'mattermost-redux/constants';
 
+import GlobeIcon from 'components/widgets/icons/globe_icon';
+import LockIcon from 'components/widgets/icons/lock_icon';
+import LocalizedInput from 'components/localized_input/localized_input';
 import Constants from 'utils/constants.jsx';
-import {getShortenedURL} from 'utils/url.jsx';
-import * as UserAgent from 'utils/user_agent.jsx';
+import {getShortenedURL} from 'utils/url';
+import * as UserAgent from 'utils/user_agent';
 import * as Utils from 'utils/utils.jsx';
-
-import TeamPermissionGate from 'components/permissions_gates/team_permission_gate';
+import {t} from 'utils/i18n.jsx';
 
 export default class NewChannelModal extends React.PureComponent {
     static propTypes = {
@@ -78,6 +78,24 @@ export default class NewChannelModal extends React.PureComponent {
          * Function to call when channel data is modified
          */
         onDataChanged: PropTypes.func.isRequired,
+
+        /**
+         * Permission to create public channel
+         */
+        canCreatePublicChannel: PropTypes.bool.isRequired,
+
+        /**
+         * Permission to create private channel
+         */
+        canCreatePrivateChannel: PropTypes.bool.isRequired,
+    }
+
+    static getDerivedStateFromProps(props) {
+        if (props.show === false) {
+            return {displayNameError: ''};
+        }
+
+        return null;
     }
 
     constructor(props) {
@@ -86,14 +104,10 @@ export default class NewChannelModal extends React.PureComponent {
         this.state = {
             displayNameError: '',
         };
-    }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (nextProps.show === true && this.props.show === false) {
-            this.setState({
-                displayNameError: '',
-            });
-        }
+        this.channelHeaderInput = React.createRef();
+        this.channelPurposeInput = React.createRef();
+        this.displayNameInput = React.createRef();
     }
 
     componentDidMount() {
@@ -118,7 +132,7 @@ export default class NewChannelModal extends React.PureComponent {
     handleSubmit = (e) => {
         e.preventDefault();
 
-        const displayName = ReactDOM.findDOMNode(this.refs.display_name).value.trim();
+        const displayName = this.displayNameInput.current.value.trim();
         if (displayName.length < Constants.MIN_CHANNELNAME_LENGTH) {
             this.setState({displayNameError: true});
             return;
@@ -129,9 +143,9 @@ export default class NewChannelModal extends React.PureComponent {
 
     handleChange = () => {
         const newData = {
-            displayName: this.refs.display_name.value,
-            header: this.refs.channel_header.value,
-            purpose: this.refs.channel_purpose.value,
+            displayName: this.displayNameInput.current.value,
+            header: this.channelHeaderInput.current.value,
+            purpose: this.channelPurposeInput.current.value,
         };
         this.props.onDataChanged(newData);
     }
@@ -143,7 +157,18 @@ export default class NewChannelModal extends React.PureComponent {
         }
     }
 
+    handlePublicTypeSelect = () => {
+        this.props.onTypeSwitched('O');
+    }
+
+    handlePrivateTypeSelect = () => {
+        this.props.onTypeSwitched('P');
+    }
+
     render() {
+        const {canCreatePublicChannel, canCreatePrivateChannel} = this.props;
+
+        const enableTypeSelection = canCreatePublicChannel && canCreatePrivateChannel;
         var displayNameError = null;
         var serverError = null;
         var displayNameClass = 'form-group';
@@ -162,71 +187,92 @@ export default class NewChannelModal extends React.PureComponent {
         }
 
         if (this.props.serverError) {
-            serverError = <div className='form-group has-error'><div className='col-sm-12'><p className='input__help error'>{this.props.serverError}</p></div></div>;
+            serverError = (
+                <div className='form-group has-error'>
+                    <div className='col-sm-12'>
+                        <p
+                            id='createChannelError'
+                            className='input__help error'
+                        >
+                            {this.props.serverError}
+                        </p>
+                    </div>
+                </div>
+            );
         }
 
-        const createPublicChannelLink = (
-            <button
-                className='style--none color--link'
-                onClick={this.props.onTypeSwitched}
-            >
+        const publicChannelDesc = (
+            <div className='flex-parent'>
+                <GlobeIcon className='icon icon__globe icon--body type-icon'/>
                 <FormattedMessage
-                    id='channel_modal.publicChannel1'
-                    defaultMessage='Create a public channel'
+                    id='channel_modal.publicName'
+                    defaultMessage='Public'
                 />
-            </button>
+                <FormattedMessage
+                    id='channel_modal.publicHint'
+                    defaultMessage=' - Anyone can join this channel.'
+                />
+            </div>
         );
 
-        const createPrivateChannelLink = (
-            <button
-                className='style--none color--link'
-                onClick={this.props.onTypeSwitched}
-                tabIndex='6'
-            >
+        const privateChannelDesc = (
+            <div className='flex-parent'>
+                <LockIcon className='icon icon__lock icon--body type-icon'/>
                 <FormattedMessage
-                    id='channel_modal.privateGroup2'
-                    defaultMessage='Create a private channel'
+                    id='channel_modal.privateName'
+                    defaultMessage='Private'
                 />
-            </button>
+                <FormattedMessage
+                    id='channel_modal.privateHint'
+                    defaultMessage=' - Only invited members can join this channel.'
+                />
+            </div>
         );
 
-        var channelSwitchText = '';
-        let inputPrefixId = '';
-        switch (this.props.channelType) {
-        case 'P':
-            channelSwitchText = (
-                <div className='modal-intro'>
-                    <FormattedMessage
-                        id='channel_modal.privateGroup1'
-                        defaultMessage='Create a new private channel with restricted membership. '
-                    />
-                    <TeamPermissionGate
-                        teamId={this.props.currentTeamId}
-                        permissions={[Permissions.CREATE_PUBLIC_CHANNEL]}
-                    >
-                        {createPublicChannelLink}
-                    </TeamPermissionGate>
+        let typeOptions = null;
+        if (enableTypeSelection) {
+            typeOptions = (
+                <fieldset
+                    key='channelType'
+                    className='multi-select__radio'
+                >
+                    <div className='radio'>
+                        <label>
+                            <input
+                                id='public'
+                                type='radio'
+                                name='channelType'
+                                checked={this.props.channelType === 'O'}
+                                onChange={this.handlePublicTypeSelect}
+                                aria-labelledby='channelModalTypeLabel'
+                            />
+                            {publicChannelDesc}
+                        </label>
+                    </div>
+                    <div className='radio'>
+                        <label>
+                            <input
+                                id='private'
+                                type='radio'
+                                name='channelType'
+                                checked={this.props.channelType === 'P'}
+                                onChange={this.handlePrivateTypeSelect}
+                                aria-labelledby='channelModalTypeLabel'
+                            />
+                            {privateChannelDesc}
+                        </label>
+                    </div>
+                </fieldset>
+            );
+        } else {
+            typeOptions = (
+                <div className='type-container multi-select__radio'>
+                    <div className='radio'>
+                        {canCreatePublicChannel ? publicChannelDesc : null}
+                        {canCreatePrivateChannel ? privateChannelDesc : null}
+                    </div>
                 </div>
             );
-            inputPrefixId = 'newPrivateChannel';
-            break;
-        case 'O':
-            channelSwitchText = (
-                <div className='modal-intro'>
-                    <FormattedMessage
-                        id='channel_modal.publicChannel2'
-                        defaultMessage='Create a new public channel anyone can join. '
-                    />
-                    <TeamPermissionGate
-                        teamId={this.props.currentTeamId}
-                        permissions={[Permissions.CREATE_PRIVATE_CHANNEL]}
-                    >
-                        {createPrivateChannelLink}
-                    </TeamPermissionGate>
-                </div>
-            );
-            inputPrefixId = 'newPublicChannel';
-            break;
         }
 
         const prettyTeamURL = getShortenedURL();
@@ -234,25 +280,30 @@ export default class NewChannelModal extends React.PureComponent {
         return (
             <span>
                 <Modal
-                    dialogClassName='new-channel__modal'
+                    dialogClassName='a11y__modal new-channel__modal new-channel'
                     show={this.props.show}
                     bsSize='large'
                     onHide={this.props.onModalDismissed}
                     onExited={this.props.onModalExited}
                     autoFocus={true}
                     restoreFocus={true}
+                    role='dialog'
+                    aria-labelledby='newChannelModalLabel'
                 >
                     <Modal.Header>
                         <button
                             type='button'
                             className='close'
                             onClick={this.props.onModalDismissed}
-                            tabIndex='5'
+                            aria-label='Close'
+                            title='Close'
                         >
                             <span aria-hidden='true'>{'×'}</span>
-                            <span className='sr-only'>{'Close'}</span>
                         </button>
-                        <Modal.Title>
+                        <Modal.Title
+                            componentClass='h1'
+                            id='newChannelModalLabel'
+                        >
                             <FormattedMessage
                                 id='channel_modal.modalTitle'
                                 defaultMessage='New Channel'
@@ -264,28 +315,41 @@ export default class NewChannelModal extends React.PureComponent {
                         className='form-horizontal'
                     >
                         <Modal.Body>
-                            <div>
-                                {channelSwitchText}
+                            <div className='form-group'>
+                                <label
+                                    className='col-sm-3 form__label control-label'
+                                    id='channelModalTypeLabel'
+                                >
+                                    <FormattedMessage
+                                        id='channel_modal.type'
+                                        defaultMessage='Type'
+                                    />
+                                </label>
+                                <div className='col-sm-9'>
+                                    {typeOptions}
+                                </div>
                             </div>
                             <div className={displayNameClass}>
-                                <label className='col-sm-3 form__label control-label'>
+                                <label
+                                    className='col-sm-3 form__label control-label'
+                                    htmlFor='newChannelName'
+                                >
                                     <FormattedMessage
                                         id='channel_modal.name'
                                         defaultMessage='Name'
                                     />
                                 </label>
                                 <div className='col-sm-9'>
-                                    <input
-                                        id={inputPrefixId + 'Name'}
+                                    <LocalizedInput
+                                        id='newChannelName'
                                         onChange={this.handleChange}
                                         type='text'
-                                        ref='display_name'
+                                        ref={this.displayNameInput}
                                         className='form-control'
-                                        placeholder={Utils.localizeMessage('channel_modal.nameEx', 'E.g.: "Bugs", "Marketing", "客户支持"')}
+                                        placeholder={{id: t('channel_modal.nameEx'), defaultMessage: 'E.g.: "Bugs", "Marketing", "客户支持"'}}
                                         maxLength={Constants.MAX_CHANNELNAME_LENGTH}
                                         value={this.props.channelData.displayName}
                                         autoFocus={true}
-                                        tabIndex='1'
                                         onKeyDown={this.onEnterKeyDown}
                                     />
                                     {displayNameError}
@@ -294,7 +358,6 @@ export default class NewChannelModal extends React.PureComponent {
                                         <button
                                             className='color--link style--none'
                                             onClick={this.handleOnURLChange}
-                                            tabIndex='7'
                                         >
                                             <FormattedMessage
                                                 id='channel_modal.edit'
@@ -307,7 +370,10 @@ export default class NewChannelModal extends React.PureComponent {
                             </div>
                             <div className='form-group'>
                                 <div className='col-sm-3'>
-                                    <label className='form__label control-label'>
+                                    <label
+                                        className='form__label control-label'
+                                        htmlFor='newChannelPurpose'
+                                    >
                                         <FormattedMessage
                                             id='channel_modal.purpose'
                                             defaultMessage='Purpose'
@@ -322,15 +388,14 @@ export default class NewChannelModal extends React.PureComponent {
                                 </div>
                                 <div className='col-sm-9'>
                                     <textarea
-                                        id={inputPrefixId + 'Purpose'}
+                                        id='newChannelPurpose'
                                         className='form-control no-resize'
-                                        ref='channel_purpose'
+                                        ref={this.channelPurposeInput}
                                         rows='4'
                                         placeholder={Utils.localizeMessage('channel_modal.purposeEx', 'E.g.: "A channel to file bugs and improvements"')}
                                         maxLength='250'
                                         value={this.props.channelData.purpose}
                                         onChange={this.handleChange}
-                                        tabIndex='2'
                                     />
                                     <p className='input__help'>
                                         <FormattedMessage
@@ -342,7 +407,10 @@ export default class NewChannelModal extends React.PureComponent {
                             </div>
                             <div className='form-group less'>
                                 <div className='col-sm-3'>
-                                    <label className='form__label control-label'>
+                                    <label
+                                        className='form__label control-label'
+                                        htmlFor='newChannelHeader'
+                                    >
                                         <FormattedMessage
                                             id='channel_modal.header'
                                             defaultMessage='Header'
@@ -357,15 +425,14 @@ export default class NewChannelModal extends React.PureComponent {
                                 </div>
                                 <div className='col-sm-9'>
                                     <textarea
-                                        id={inputPrefixId + 'Header'}
+                                        id='newChannelHeader'
                                         className='form-control no-resize'
-                                        ref='channel_header'
+                                        ref={this.channelHeaderInput}
                                         rows='4'
                                         placeholder={Utils.localizeMessage('channel_modal.headerEx', 'E.g.: "[Link Title](http://example.com)"')}
                                         maxLength='1024'
                                         value={this.props.channelData.header}
                                         onChange={this.handleChange}
-                                        tabIndex='3'
                                     />
                                     <p className='input__help'>
                                         <FormattedMessage
@@ -379,11 +446,11 @@ export default class NewChannelModal extends React.PureComponent {
                         </Modal.Body>
                         <Modal.Footer>
                             <button
+                                id='cancelNewChannel'
                                 type='button'
-                                className='btn btn-default'
+                                className='btn btn-link'
                                 onClick={this.props.onModalDismissed}
-                                tabIndex='8'
-                                onBlur={() => document.getElementById(`${inputPrefixId}Name`).focus()}
+                                onBlur={() => document.getElementById('newChannelName').focus()}
                             >
                                 <FormattedMessage
                                     id='channel_modal.cancel'
@@ -391,10 +458,10 @@ export default class NewChannelModal extends React.PureComponent {
                                 />
                             </button>
                             <button
+                                id='submitNewChannel'
                                 onClick={this.handleSubmit}
                                 type='submit'
                                 className='btn btn-primary'
-                                tabIndex='4'
                             >
                                 <FormattedMessage
                                     id='channel_modal.createNew'

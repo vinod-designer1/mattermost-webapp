@@ -2,23 +2,48 @@
 // See LICENSE.txt for license information.
 
 import {connect} from 'react-redux';
-import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
+import {bindActionCreators} from 'redux';
+
+import {getConfig} from 'mattermost-redux/selectors/entities/general';
+import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
+import {get, makeGetCategory} from 'mattermost-redux/selectors/entities/preferences';
+import {savePreferences} from 'mattermost-redux/actions/preferences';
+import {updateUserActive, revokeAllSessionsForUser} from 'mattermost-redux/actions/users';
+
+import {Preferences} from 'utils/constants';
 
 import AdvancedSettingsDisplay from './user_settings_advanced.jsx';
 
-function mapStateToProps(state) {
-    const config = getConfig(state);
-    const license = getLicense(state);
+function makeMapStateToProps() {
+    const getAdvancedSettingsCategory = makeGetCategory();
 
-    const enablePreviewFeatures = config.EnablePreviewFeatures === 'true';
-    const buildEnterpriseReady = config.BuildEnterpriseReady === 'true';
-    const isLicensed = license && license.IsLicensed === 'true';
+    return (state) => {
+        const config = getConfig(state);
 
-    return {
-        enablePreviewFeatures,
-        buildEnterpriseReady,
-        isLicensed,
+        const enablePreviewFeatures = config.EnablePreviewFeatures === 'true';
+        const enableUserDeactivation = config.EnableUserDeactivation === 'true';
+
+        return {
+            advancedSettingsCategory: getAdvancedSettingsCategory(state, Preferences.CATEGORY_ADVANCED_SETTINGS),
+            sendOnCtrlEnter: get(state, Preferences.CATEGORY_ADVANCED_SETTINGS, 'send_on_ctrl_enter', 'false'),
+            codeBlockOnCtrlEnter: get(state, Preferences.CATEGORY_ADVANCED_SETTINGS, 'code_block_ctrl_enter', 'true'),
+            formatting: get(state, Preferences.CATEGORY_ADVANCED_SETTINGS, 'formatting', 'true'),
+            joinLeave: get(state, Preferences.CATEGORY_ADVANCED_SETTINGS, 'join_leave', 'true'),
+            currentUser: getCurrentUser(state),
+            enablePreviewFeatures,
+            enableUserDeactivation,
+        };
     };
 }
 
-export default connect(mapStateToProps)(AdvancedSettingsDisplay);
+function mapDispatchToProps(dispatch) {
+    return {
+        actions: bindActionCreators({
+            savePreferences,
+            updateUserActive,
+            revokeAllSessionsForUser,
+        }, dispatch),
+    };
+}
+
+export default connect(makeMapStateToProps, mapDispatchToProps)(AdvancedSettingsDisplay);

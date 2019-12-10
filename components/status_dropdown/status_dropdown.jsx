@@ -3,14 +3,16 @@
 
 import PropTypes from 'prop-types';
 import React from 'react';
-import {Dropdown} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 
-import {UserStatuses, ModalIdentifiers} from 'utils/constants.jsx';
+import {UserStatuses, ModalIdentifiers} from 'utils/constants';
 import {localizeMessage} from 'utils/utils.jsx';
-import BootstrapSpan from 'components/bootstrap_span.jsx';
 import ResetStatusModal from 'components/reset_status_modal';
 import StatusIcon from 'components/status_icon.jsx';
+
+import Avatar from 'components/widgets/users/avatar';
+import Menu from 'components/widgets/menu/menu';
+import MenuWrapper from 'components/widgets/menu/menu_wrapper';
 
 export default class StatusDropdown extends React.Component {
     static propTypes = {
@@ -18,6 +20,7 @@ export default class StatusDropdown extends React.Component {
         status: PropTypes.string,
         userId: PropTypes.string.isRequired,
         profilePicture: PropTypes.string,
+        autoResetPref: PropTypes.string,
         actions: PropTypes.shape({
             openModal: PropTypes.func.isRequired,
             setStatus: PropTypes.func.isRequired,
@@ -30,20 +33,8 @@ export default class StatusDropdown extends React.Component {
         status: UserStatuses.OFFLINE,
     }
 
-    state = {
-        showDropdown: false,
-    }
-
     isUserOutOfOffice = () => {
         return this.props.status === UserStatuses.OUT_OF_OFFICE;
-    }
-
-    onToggle = (showDropdown) => {
-        this.setState({showDropdown});
-    }
-
-    closeDropdown = () => {
-        this.setState({showDropdown: false});
     }
 
     setStatus = (status) => {
@@ -51,7 +42,6 @@ export default class StatusDropdown extends React.Component {
             user_id: this.props.userId,
             status,
         });
-        this.closeDropdown();
     }
 
     setOnline = (event) => {
@@ -75,8 +65,6 @@ export default class StatusDropdown extends React.Component {
     }
 
     showStatusChangeConfirmation = (status) => {
-        this.closeDropdown();
-
         const resetStatusModalData = {
             ModalId: ModalIdentifiers.RESET_STATUS,
             dialogType: ResetStatusModal,
@@ -86,133 +74,99 @@ export default class StatusDropdown extends React.Component {
         this.props.actions.openModal(resetStatusModalData);
     };
 
-    renderStatusOnlineAction = () => {
-        if (this.isUserOutOfOffice()) {
-            return this.renderStatusAction(UserStatuses.ONLINE, () => this.showStatusChangeConfirmation('online'));
-        }
-        return this.renderStatusAction(UserStatuses.ONLINE, this.setOnline);
-    }
-
-    renderStatusAwayAction = () => {
-        if (this.isUserOutOfOffice()) {
-            return this.renderStatusAction(UserStatuses.AWAY, () => this.showStatusChangeConfirmation('away'));
-        }
-        return this.renderStatusAction(UserStatuses.AWAY, this.setAway);
-    }
-
-    renderStatusOfflineAction = () => {
-        if (this.isUserOutOfOffice()) {
-            return this.renderStatusAction(UserStatuses.OFFLINE, () => this.showStatusChangeConfirmation('offline'));
-        }
-        return this.renderStatusAction(UserStatuses.OFFLINE, this.setOffline);
-    }
-
-    renderStatusDndAction = () => {
-        if (this.isUserOutOfOffice()) {
-            return this.renderStatusAction(UserStatuses.DND, () => this.showStatusChangeConfirmation('dnd'), localizeMessage('status_dropdown.set_dnd.extra', 'Disables Desktop and Push Notifications'));
-        }
-        return this.renderStatusAction(UserStatuses.DND, this.setDnd, localizeMessage('status_dropdown.set_dnd.extra', 'Disables Desktop and Push Notifications'));
-    }
-
-    renderStatusOutOfOfficeAction = () => {
-        return this.renderOOFStatusAction(UserStatuses.OUT_OF_OFFICE, localizeMessage('status_dropdown.set_ooo.extra', 'Automatic Replies are enabled'));
-    }
-
     renderProfilePicture = () => {
         if (!this.props.profilePicture) {
             return null;
         }
         return (
-            <img
-                className='user__picture'
-                src={this.props.profilePicture}
+            <Avatar
+                size='lg'
+                url={this.props.profilePicture}
             />
         );
     }
 
-    renderOOFStatusAction = (status, extraText) => {
+    renderDropdownIcon = () => {
         return (
-            <li key={status}>
-                <a
-                    className='out_of_office'
-                    id={'status' + status}
-                >
-                    <FormattedMessage
-                        id={`status_dropdown.set_${status}`}
-                        defaultMessage={status}
-                    />
-                    <span className='status-dropdown-extra'>{extraText}</span>
-                </a>
-            </li>
-        );
-    }
-
-    renderStatusAction = (status, onClick, extraText) => {
-        return (
-            <li key={status}>
-                <a
-                    id={'status' + status}
-                    href={'#'}
-                    onClick={onClick}
-                >
-                    <FormattedMessage
-                        id={`status_dropdown.set_${status}`}
-                        defaultMessage={status}
-                    />
-                    <span className='status-dropdown-extra'>{extraText}</span>
-                </a>
-            </li>
+            <FormattedMessage
+                id='generic_icons.dropdown'
+                defaultMessage='Dropdown Icon'
+            >
+                { (title) => (
+                    <i
+                        className={'fa fa-caret-down'}
+                        title={title}
+                    />)
+                }
+            </FormattedMessage>
         );
     }
 
     render() {
+        const needsConfirm = this.isUserOutOfOffice() && this.props.autoResetPref === '';
         const profilePicture = this.renderProfilePicture();
-        let actions = [
-            this.renderStatusOnlineAction(),
-            this.renderStatusAwayAction(),
-            this.renderStatusDndAction(),
-            this.renderStatusOfflineAction(),
-        ];
+        const dropdownIcon = this.renderDropdownIcon();
 
-        if (this.isUserOutOfOffice()) {
-            const divider = (
-                <li
-                    className='divider'
-                    key='oof_divider'
-                />
-            );
-            actions = [
-                this.renderStatusOutOfOfficeAction(),
-                divider,
-                ...actions,
-            ];
-        }
+        const setOnline = needsConfirm ? () => this.showStatusChangeConfirmation('online') : this.setOnline;
+        const setDnd = needsConfirm ? () => this.showStatusChangeConfirmation('dnd') : this.setDnd;
+        const setAway = needsConfirm ? () => this.showStatusChangeConfirmation('away') : this.setAway;
+        const setOffline = needsConfirm ? () => this.showStatusChangeConfirmation('offline') : this.setOffline;
 
         return (
-            <Dropdown
-                id={'status-dropdown'}
-                open={this.state.showDropdown}
+            <MenuWrapper
                 onToggle={this.onToggle}
                 style={this.props.style}
             >
-                <BootstrapSpan
-                    bsRole={'toggle'}
-                >
-                    <div className='status-wrapper status-selector'>
-                        {profilePicture}
-                        <StatusIcon status={this.props.status}/>
-                        <span className={'status status-edit edit'}>
-                            <i
-                                className={'fa fa-caret-down'}
-                                title={localizeMessage('generic_icons.dropdown', 'Dropdown Icon')}
-                            />
-                        </span>
-                    </div>
-                </BootstrapSpan>
-                <Dropdown.Menu id='editStatusMenu'>
-                    {actions}
-                </Dropdown.Menu>
-            </Dropdown>
+                <div className='status-wrapper status-selector'>
+                    {profilePicture}
+                    <button
+                        className='status style--none'
+                        aria-label={localizeMessage('status_dropdown.menuAriaLabel', 'set status')}
+                    >
+                        <StatusIcon
+                            status={this.props.status}
+                            button={true}
+                        />
+                    </button>
+                    <span className={'status status-edit edit'}>
+                        {dropdownIcon}
+                    </span>
+                </div>
+                <Menu ariaLabel={localizeMessage('status_dropdown.menuAriaLabel', 'set status')}>
+                    <Menu.Group>
+                        <Menu.ItemAction
+                            show={this.isUserOutOfOffice()}
+                            onClick={() => null}
+                            ariaLabel={localizeMessage('status_dropdown.set_ooo', 'Out of office').toLowerCase()}
+                            text={localizeMessage('status_dropdown.set_ooo', 'Out of office')}
+                            extraText={localizeMessage('status_dropdown.set_ooo.extra', 'Automatic Replies are enabled')}
+                        />
+                    </Menu.Group>
+                    <Menu.Group>
+                        <Menu.ItemAction
+                            onClick={setOnline}
+                            ariaLabel={localizeMessage('status_dropdown.set_online', 'Online').toLowerCase()}
+                            text={localizeMessage('status_dropdown.set_online', 'Online')}
+                        />
+                        <Menu.ItemAction
+                            onClick={setAway}
+                            ariaLabel={localizeMessage('status_dropdown.set_away', 'Away').toLowerCase()}
+                            text={localizeMessage('status_dropdown.set_away', 'Away')}
+                        />
+                        <Menu.ItemAction
+                            onClick={setDnd}
+                            ariaLabel={`${localizeMessage('status_dropdown.set_dnd', 'Do not disturb').toLowerCase()}. ${localizeMessage('status_dropdown.set_dnd.extra', 'Disables desktop, email and push notifications').toLowerCase()}`}
+                            text={localizeMessage('status_dropdown.set_dnd', 'Do not disturb')}
+                            extraText={localizeMessage('status_dropdown.set_dnd.extra', 'Disables desktop, email and push notifications')}
+                        />
+                        <Menu.ItemAction
+                            onClick={setOffline}
+                            ariaLabel={localizeMessage('status_dropdown.set_offline', 'Offline').toLowerCase()}
+                            text={localizeMessage('status_dropdown.set_offline', 'Offline')}
+                        />
+                    </Menu.Group>
+                </Menu>
+            </MenuWrapper>
         );
     }
 }

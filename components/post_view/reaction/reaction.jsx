@@ -6,7 +6,6 @@ import React from 'react';
 import {OverlayTrigger, Tooltip} from 'react-bootstrap';
 import {FormattedMessage} from 'react-intl';
 
-import {emitEmojiPosted} from 'actions/post_actions.jsx';
 import * as Utils from 'utils/utils.jsx';
 
 export default class Reaction extends React.PureComponent {
@@ -81,28 +80,43 @@ export default class Reaction extends React.PureComponent {
         }),
     }
 
-    constructor(props) {
-        super(props);
-
-        this.addReaction = this.addReaction.bind(this);
-        this.removeReaction = this.removeReaction.bind(this);
-    }
-
-    addReaction(e) {
+    handleAddReaction = (e) => {
         e.preventDefault();
         const {actions, post, emojiName} = this.props;
         actions.addReaction(post.id, emojiName);
-        emitEmojiPosted(emojiName);
     }
 
-    removeReaction(e) {
+    handleRemoveReaction = (e) => {
         e.preventDefault();
         this.props.actions.removeReaction(this.props.post.id, this.props.emojiName);
     }
 
-    loadMissingProfiles = () => {
+    loadMissingProfiles = async () => {
         const ids = this.props.reactions.map((reaction) => reaction.user_id);
         this.props.actions.getMissingProfilesByIds(ids);
+    }
+
+    getSortedUsers = (getDisplayName) => {
+        // Sort users by who reacted first with "you" being first if the current user reacted
+        let currentUserReacted = false;
+        const sortedReactions = this.props.reactions.sort((a, b) => a.create_at - b.create_at);
+        const users = sortedReactions.reduce((accumulator, current) => {
+            if (current.user_id === this.props.currentUserId) {
+                currentUserReacted = true;
+            } else {
+                const user = this.props.profiles.find((u) => u.id === current.user_id);
+                if (user) {
+                    accumulator.push(getDisplayName(user));
+                }
+            }
+            return accumulator;
+        }, []);
+
+        if (currentUserReacted) {
+            users.unshift(Utils.localizeMessage('reaction.you', 'You'));
+        }
+
+        return {currentUserReacted, users};
     }
 
     render() {
@@ -110,23 +124,9 @@ export default class Reaction extends React.PureComponent {
             return null;
         }
 
-        let currentUserReacted = false;
-        const users = [];
+        const {currentUserReacted, users} = this.getSortedUsers(Utils.getDisplayNameByUser);
+
         const otherUsersCount = this.props.otherUsersCount;
-        for (const user of this.props.profiles) {
-            if (user.id === this.props.currentUserId) {
-                currentUserReacted = true;
-            } else {
-                users.push(Utils.getDisplayNameByUser(user));
-            }
-        }
-
-        // Sort users in alphabetical order with "you" being first if the current user reacted
-        users.sort();
-        if (currentUserReacted) {
-            users.unshift(Utils.localizeMessage('reaction.you', 'You'));
-        }
-
         let names;
         if (otherUsersCount > 0) {
             if (users.length > 0) {
@@ -214,9 +214,12 @@ export default class Reaction extends React.PureComponent {
         let handleClick;
         let clickTooltip;
         let className = 'post-reaction';
+        const emojiNameWithSpaces = this.props.emojiName.replace(/_/g, ' ');
+        let ariaLabelEmoji = `${Utils.localizeMessage('reaction.reactWidth.ariaLabel', 'react with')} ${emojiNameWithSpaces}`;
         if (currentUserReacted) {
             if (this.props.canRemoveReaction) {
-                handleClick = this.removeReaction;
+                handleClick = this.handleRemoveReaction;
+                ariaLabelEmoji = `${Utils.localizeMessage('reaction.removeReact.ariaLabel', 'remove reaction')} ${emojiNameWithSpaces}`;
                 clickTooltip = (
                     <FormattedMessage
                         id='reaction.clickToRemove'
@@ -229,7 +232,7 @@ export default class Reaction extends React.PureComponent {
 
             className += ' post-reaction--current-user';
         } else if (!currentUserReacted && this.props.canAddReaction) {
-            handleClick = this.addReaction;
+            handleClick = this.handleAddReaction;
             clickTooltip = (
                 <FormattedMessage
                     id='reaction.clickToAdd'
@@ -241,33 +244,38 @@ export default class Reaction extends React.PureComponent {
         }
 
         return (
-            <OverlayTrigger
-                trigger={['hover', 'focus']}
-                delayShow={1000}
-                placement='top'
-                shouldUpdatePosition={true}
-                overlay={
-                    <Tooltip id={`${this.props.post.id}-${this.props.emojiName}-reaction`}>
-                        {tooltip}
-                        <br/>
-                        {clickTooltip}
-                    </Tooltip>
-                }
-                onEnter={this.loadMissingProfiles}
+            <button
+                id={`postReaction-${this.props.post.id}-${this.props.emojiName}`}
+                aria-label={ariaLabelEmoji}
+                className={`style--none ${className}`}
+                onClick={handleClick}
             >
-                <div
-                    className={className}
-                    onClick={handleClick}
+                <OverlayTrigger
+                    delayShow={500}
+                    placement='top'
+                    shouldUpdatePosition={true}
+                    overlay={
+                        <Tooltip id={`${this.props.post.id}-${this.props.emojiName}-reaction`}>
+                            {tooltip}
+                            <br/>
+                            {clickTooltip}
+                        </Tooltip>
+                    }
+                    onEnter={this.loadMissingProfiles}
                 >
-                    <span
-                        className='post-reaction__emoji emoticon'
-                        style={{backgroundImage: 'url(' + this.props.emojiImageUrl + ')'}}
-                    />
-                    <span className='post-reaction__count'>
-                        {this.props.reactionCount}
+                    <span>
+                        <span
+                            className='post-reaction__emoji emoticon'
+                            style={{backgroundImage: 'url(' + this.props.emojiImageUrl + ')'}}
+                        />
+                        <span
+                            className='post-reaction__count'
+                        >
+                            {this.props.reactionCount}
+                        </span>
                     </span>
-                </div>
-            </OverlayTrigger>
+                </OverlayTrigger>
+            </button>
         );
     }
 }

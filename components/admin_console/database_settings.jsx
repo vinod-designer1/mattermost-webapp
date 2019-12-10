@@ -4,34 +4,27 @@
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 
+import FormattedMarkdownMessage from 'components/formatted_markdown_message';
 import {recycleDatabaseConnection} from 'actions/admin_actions.jsx';
 import * as Utils from 'utils/utils.jsx';
+import {t} from 'utils/i18n';
 
-import AdminSettings from './admin_settings.jsx';
-import BooleanSetting from './boolean_setting.jsx';
-import GeneratedSetting from './generated_setting.jsx';
+import AdminSettings from './admin_settings';
+import BooleanSetting from './boolean_setting';
 import RequestButton from './request_button/request_button.jsx';
 import SettingsGroup from './settings_group.jsx';
-import TextSetting from './text_setting.jsx';
+import TextSetting from './text_setting';
 
 export default class DatabaseSettings extends AdminSettings {
-    constructor(props) {
-        super(props);
-
-        this.getConfigFromState = this.getConfigFromState.bind(this);
-
-        this.renderSettings = this.renderSettings.bind(this);
-    }
-
-    getConfigFromState(config) {
+    getConfigFromState = (config) => {
         // driverName and dataSource are read-only from the UI
 
         config.SqlSettings.MaxIdleConns = this.parseIntNonZero(this.state.maxIdleConns);
         config.SqlSettings.MaxOpenConns = this.parseIntNonZero(this.state.maxOpenConns);
-        config.SqlSettings.AtRestEncryptKey = this.state.atRestEncryptKey;
         config.SqlSettings.Trace = this.state.trace;
         config.SqlSettings.QueryTimeout = this.parseIntNonZero(this.state.queryTimeout);
         config.SqlSettings.ConnMaxLifetimeMilliseconds = this.parseIntNonNegative(this.state.connMaxLifetimeMilliseconds);
+        config.ServiceSettings.MinimumHashtagLength = this.parseIntNonZero(this.state.minimumHashtagLength, 3, 2);
 
         return config;
     }
@@ -42,10 +35,10 @@ export default class DatabaseSettings extends AdminSettings {
             dataSource: config.SqlSettings.DataSource,
             maxIdleConns: config.SqlSettings.MaxIdleConns,
             maxOpenConns: config.SqlSettings.MaxOpenConns,
-            atRestEncryptKey: config.SqlSettings.AtRestEncryptKey,
             trace: config.SqlSettings.Trace,
             queryTimeout: config.SqlSettings.QueryTimeout,
             connMaxLifetimeMilliseconds: config.SqlSettings.ConnMaxLifetimeMilliseconds,
+            minimumHashtagLength: config.ServiceSettings.MinimumHashtagLength,
         };
     }
 
@@ -58,7 +51,7 @@ export default class DatabaseSettings extends AdminSettings {
         );
     }
 
-    renderSettings() {
+    renderSettings = () => {
         const dataSource = '**********' + this.state.dataSource.substring(this.state.dataSource.indexOf('@'));
 
         let recycleDbButton = <div/>;
@@ -80,11 +73,11 @@ export default class DatabaseSettings extends AdminSettings {
                                     </b>
                                 ),
                                 reloadConfiguration: (
-                                    <a href='../general/configuration'>
+                                    <a href='../environment/web_server'>
                                         <b>
                                             <FormattedMessage
                                                 id='admin.recycle.recycleDescription.reloadConfiguration'
-                                                defaultMessage='Configuration > Reload Configuration from Disk'
+                                                defaultMessage='Environment > Web Server > Reload Configuration from Disk'
                                             />
                                         </b>
                                     </a>
@@ -100,7 +93,7 @@ export default class DatabaseSettings extends AdminSettings {
                     }
                     showSuccessMessage={false}
                     errorMessage={{
-                        id: 'admin.recycle.reloadFail',
+                        id: t('admin.recycle.reloadFail'),
                         defaultMessage: 'Recycling unsuccessful: {error}',
                     }}
                     includeDetailedError={true}
@@ -127,7 +120,18 @@ export default class DatabaseSettings extends AdminSettings {
                         />
                     </label>
                     <div className='col-sm-8'>
-                        <p className='help-text'>{this.state.driverName}</p>
+                        <input
+                            type='text'
+                            className='form-control'
+                            value={this.state.driverName}
+                            disabled={true}
+                        />
+                        <div className='help-text'>
+                            <FormattedMessage
+                                id='admin.sql.driverNameDescription'
+                                defaultMessage='Set the database driver in the config.json file.'
+                            />
+                        </div>
                     </div>
                 </div>
                 <div className='form-group'>
@@ -141,7 +145,18 @@ export default class DatabaseSettings extends AdminSettings {
                         />
                     </label>
                     <div className='col-sm-8'>
-                        <p className='help-text'>{dataSource}</p>
+                        <input
+                            type='text'
+                            className='form-control'
+                            value={dataSource}
+                            disabled={true}
+                        />
+                        <div className='help-text'>
+                            <FormattedMessage
+                                id='admin.sql.dataSourceDescription'
+                                defaultMessage='Set the database source in the config.json file.'
+                            />
+                        </div>
                     </div>
                 </div>
                 <TextSetting
@@ -220,31 +235,31 @@ export default class DatabaseSettings extends AdminSettings {
                     onChange={this.handleChange}
                     setByEnv={this.isSetByEnv('SqlSettings.ConnMaxLifetimeMilliseconds')}
                 />
-                <GeneratedSetting
-                    id='atRestEncryptKey'
+                <TextSetting
+                    id='minimumHashtagLength'
                     label={
                         <FormattedMessage
-                            id='admin.sql.keyTitle'
-                            defaultMessage='At Rest Encrypt Key:'
+                            id='admin.service.minimumHashtagLengthTitle'
+                            defaultMessage='Minimum Hashtag Length:'
                         />
                     }
-                    placeholder={Utils.localizeMessage('admin.sql.keyExample', 'E.g.: "gxHVDcKUyP2y1eiyW8S8na1UYQAfq6J6"')}
+                    placeholder={Utils.localizeMessage('admin.service.minimumHashtagLengthExample', 'E.g.: "3"')}
                     helpText={
-                        <FormattedMessage
-                            id='admin.sql.keyDescription'
-                            defaultMessage='32-character salt available to encrypt and decrypt sensitive fields in database.'
+                        <FormattedMarkdownMessage
+                            id='admin.service.minimumHashtagLengthDescription'
+                            defaultMessage='Minimum number of characters in a hashtag. This must be greater than or equal to 2. MySQL databases must be configured to support searching strings shorter than three characters, [see documentation](!https://dev.mysql.com/doc/refman/8.0/en/fulltext-fine-tuning.html).'
                         />
                     }
-                    value={this.state.atRestEncryptKey}
+                    value={this.state.minimumHashtagLength}
                     onChange={this.handleChange}
-                    setByEnv={this.isSetByEnv('SqlSettings.AtRestEncryptKey')}
+                    setByEnv={this.isSetByEnv('ServiceSettings.MinimumHashtagLength')}
                 />
                 <BooleanSetting
                     id='trace'
                     label={
                         <FormattedMessage
                             id='admin.sql.traceTitle'
-                            defaultMessage='Trace: '
+                            defaultMessage='SQL Statement Logging: '
                         />
                     }
                     helpText={

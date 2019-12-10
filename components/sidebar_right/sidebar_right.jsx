@@ -6,71 +6,90 @@ import React from 'react';
 import classNames from 'classnames';
 
 import {trackEvent} from 'actions/diagnostics_actions.jsx';
-import {postListScrollChange} from 'actions/global_actions.jsx';
-import PostStore from 'stores/post_store.jsx';
-import WebrtcStore from 'stores/webrtc_store.jsx';
-import Constants from 'utils/constants.jsx';
+import Constants from 'utils/constants';
 import * as Utils from 'utils/utils.jsx';
-import FileUploadOverlay from 'components/file_upload_overlay.jsx';
+
+import FileUploadOverlay from 'components/file_upload_overlay';
 import RhsThread from 'components/rhs_thread';
+import RhsCard from 'components/rhs_card';
 import SearchBar from 'components/search_bar';
 import SearchResults from 'components/search_results';
 
-export default class SidebarRight extends React.Component {
+import RhsPlugin from 'plugins/rhs_plugin';
+
+export default class SidebarRight extends React.PureComponent {
     static propTypes = {
         isExpanded: PropTypes.bool.isRequired,
         isOpen: PropTypes.bool.isRequired,
-        currentUser: PropTypes.object,
+        currentUserId: PropTypes.string.isRequired,
         channel: PropTypes.object,
         postRightVisible: PropTypes.bool,
+        postCardVisible: PropTypes.bool,
         searchVisible: PropTypes.bool,
         isMentionSearch: PropTypes.bool,
         isFlaggedPosts: PropTypes.bool,
         isPinnedPosts: PropTypes.bool,
+        isPluginView: PropTypes.bool,
         previousRhsState: PropTypes.string,
         actions: PropTypes.shape({
-            getPinnedPosts: PropTypes.func.isRequired,
-            getFlaggedPosts: PropTypes.func.isRequired,
             setRhsExpanded: PropTypes.func.isRequired,
+            showPinnedPosts: PropTypes.func.isRequired,
         }),
-    }
+    };
 
     constructor(props) {
         super(props);
 
-        this.plScrolledToBottom = true;
+        this.sidebarRight = React.createRef();
+        this.state = {
+            isOpened: false,
+        };
     }
 
     componentDidMount() {
-        PostStore.addPostPinnedChangeListener(this.onPostPinnedChange);
+        window.addEventListener('resize', this.determineTransition);
+        this.determineTransition();
     }
 
     componentWillUnmount() {
-        PostStore.removePostPinnedChangeListener(this.onPostPinnedChange);
-    }
-
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        const isOpen = this.props.searchVisible || this.props.postRightVisible;
-        const willOpen = nextProps.searchVisible || nextProps.postRightVisible;
-
-        if (!isOpen && willOpen) {
-            trackEvent('ui', 'ui_rhs_opened');
+        window.removeEventListener('resize', this.determineTransition);
+        if (this.sidebarRight.current) {
+            this.sidebarRight.current.removeEventListener('transitionend', this.onFinishTransition);
         }
     }
 
     componentDidUpdate(prevProps) {
+        const wasOpen = prevProps.searchVisible || prevProps.postRightVisible;
         const isOpen = this.props.searchVisible || this.props.postRightVisible;
 
-        const wasOpen = prevProps.searchVisible || prevProps.postRightVisible;
+        if (!wasOpen && isOpen) {
+            trackEvent('ui', 'ui_rhs_opened');
+        }
 
-        if (isOpen && !wasOpen) {
-            setTimeout(postListScrollChange, 0);
+        const {actions, isPinnedPosts, channel} = this.props;
+        if (isPinnedPosts && prevProps.isPinnedPosts === isPinnedPosts && channel.id !== prevProps.channel.id) {
+            actions.showPinnedPosts(channel.id);
         }
     }
 
-    onPostPinnedChange = () => {
-        if (this.props.channel && this.props.isPinnedPosts) {
-            this.props.actions.getPinnedPosts(this.props.channel.id);
+    determineTransition = () => {
+        const transitionInfo = window.getComputedStyle(this.sidebarRight.current).getPropertyValue('transition');
+        const hasTransition = Boolean(transitionInfo) && transitionInfo !== 'all 0s ease 0s';
+
+        if (this.sidebarRight.current && hasTransition) {
+            this.setState({isOpened: this.props.isOpen});
+            this.sidebarRight.current.addEventListener('transitionend', this.onFinishTransition);
+        } else {
+            this.setState({isOpened: true});
+            if (this.sidebarRight.current) {
+                this.sidebarRight.current.removeEventListener('transitionend', this.onFinishTransition);
+            }
+        }
+    }
+
+    onFinishTransition = (e) => {
+        if (e.propertyName === 'transform') {
+            this.setState({isOpened: this.props.isOpen});
         }
     }
 
@@ -81,13 +100,15 @@ export default class SidebarRight extends React.Component {
     render() {
         const {
             channel,
-            currentUser,
+            currentUserId,
             isFlaggedPosts,
             isMentionSearch,
             isPinnedPosts,
             postRightVisible,
+            postCardVisible,
             previousRhsState,
             searchVisible,
+            isPluginView,
         } = this.props;
 
         let content = null;
@@ -98,8 +119,13 @@ export default class SidebarRight extends React.Component {
         }
 
         var searchForm = null;
-        if (currentUser) {
-            searchForm = <SearchBar isFocus={searchVisible && !isFlaggedPosts && !isPinnedPosts}/>;
+        if (currentUserId) {
+            searchForm = (
+                <SearchBar
+                    isFocus={searchVisible && !isFlaggedPosts && !isPinnedPosts}
+                    isSideBarRight={true}
+                />
+            );
         }
 
         let channelDisplayName = '';
@@ -122,6 +148,7 @@ export default class SidebarRight extends React.Component {
                         toggleSize={this.toggleSize}
                         shrink={this.onShrink}
                         channelDisplayName={channelDisplayName}
+                        isOpened={this.state.isOpened}
                     />
                 </div>
             );
@@ -132,11 +159,24 @@ export default class SidebarRight extends React.Component {
                     <div className='search-bar__container channel-header alt'>{searchForm}</div>
                     <RhsThread
                         previousRhsState={previousRhsState}
-                        isWebrtc={WebrtcStore.isBusy()}
-                        currentUser={currentUser}
+                        currentUserId={currentUserId}
                         toggleSize={this.toggleSize}
                         shrink={this.onShrink}
                     />
+                </div>
+            );
+        } else if (isPluginView) {
+            content = (
+                <div className='post-right__container'>
+                    <div className='search-bar__container channel-header alt'>{searchForm}</div>
+                    <RhsPlugin/>
+                </div>
+            );
+        } else if (postCardVisible) {
+            content = (
+                <div className='post-right__container'>
+                    <div className='search-bar__container channel-header alt'>{searchForm}</div>
+                    <RhsCard previousRhsState={previousRhsState}/>
                 </div>
             );
         }
@@ -149,6 +189,7 @@ export default class SidebarRight extends React.Component {
             <div
                 className={classNames('sidebar--right', expandedClass, {'move--left': this.props.isOpen})}
                 id='sidebar-right'
+                ref={this.sidebarRight}
             >
                 <div
                     onClick={this.onShrink}

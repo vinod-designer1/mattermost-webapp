@@ -7,6 +7,7 @@ It's written in Golang and React and runs as a single Linux binary with MySQL or
 This project hosts the webapp client code. Please file issues at [/mattermost-server](https://github.com/mattermost/mattermost-server), which hosts the server code.
 
 - [Review product documentation](http://docs.mattermost.com/).
+- [Review developer documentation](https://developers.mattermost.com/).
 - [Download compiled version](https://mattermost.org/download).
 
 Try out Mattermost: 
@@ -43,8 +44,8 @@ Learn More:
 
 Get the Latest News:
 
-- **Twitter** - Follow [MattermostHQ](https://twitter.com/mattermosthq)
+- **Twitter** - Follow [Mattermost](https://twitter.com/Mattermost)
 - **Email** - Subscribe to our [newsletter](http://mattermost.us11.list-manage.com/subscribe?u=6cdba22349ae374e188e7ab8e&id=2add1c8034) (1 or 2 per month)
-- **IRC** - Join us on #matterbridge (thanks to [matterircd](https://github.com/42wim/matterircd))
+- **IRC** - Join the #matterbridge channel on [Freenode](https://freenode.net/) (thanks to [matterircd](https://github.com/42wim/matterircd))
 
 Any other questions, mail us at info@mattermost.com. We'd love to meet you!

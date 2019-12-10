@@ -3,21 +3,21 @@
 
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
-import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {getChannel} from 'mattermost-redux/selectors/entities/channels';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
-import PostStore from 'stores/post_store';
-import {getPinnedPosts, getFlaggedPosts, setRhsExpanded} from 'actions/views/rhs';
+import {setRhsExpanded, showPinnedPosts} from 'actions/views/rhs';
 import {
     getIsRhsExpanded,
     getIsRhsOpen,
     getRhsState,
     getSelectedPostId,
+    getSelectedPostCardId,
     getSelectedChannelId,
     getPreviousRhsState,
 } from 'selectors/rhs';
-import {RHSStates} from 'utils/constants.jsx';
+import {RHSStates} from 'utils/constants';
 
 import SidebarRight from './sidebar_right.jsx';
 
@@ -31,8 +31,8 @@ function mapStateToProps(state) {
         channel = getChannel(state, channelId);
         if (channel == null) {
             // the permalink view is not really tied to a particular channel but still needs it
-            const postId = PostStore.getFocusedPostId();
-            const post = getPost(state, postId);
+            const {focusedPostId} = state.views.channel;
+            const post = getPost(state, focusedPostId);
 
             // the post take some time before being available on page load
             if (post != null) {
@@ -45,22 +45,23 @@ function mapStateToProps(state) {
         isExpanded: getIsRhsExpanded(state),
         isOpen: getIsRhsOpen(state),
         channel,
-        currentUser: getCurrentUser(state),
+        currentUserId: getCurrentUserId(state),
         postRightVisible: Boolean(getSelectedPostId(state)),
-        searchVisible: Boolean(rhsState),
+        postCardVisible: Boolean(getSelectedPostCardId(state)),
+        searchVisible: Boolean(rhsState) && rhsState !== RHSStates.PLUGIN,
         previousRhsState: getPreviousRhsState(state),
         isMentionSearch: rhsState === RHSStates.MENTION,
         isFlaggedPosts: rhsState === RHSStates.FLAG,
         isPinnedPosts: rhsState === RHSStates.PIN,
+        isPluginView: rhsState === RHSStates.PLUGIN,
     };
 }
 
 function mapDispatchToProps(dispatch) {
     return {
         actions: bindActionCreators({
-            getPinnedPosts,
-            getFlaggedPosts,
             setRhsExpanded,
+            showPinnedPosts,
         }, dispatch),
     };
 }

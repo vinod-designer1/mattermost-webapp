@@ -6,12 +6,13 @@ import PropTypes from 'prop-types';
 import {FormattedMessage} from 'react-intl';
 
 import {browserHistory} from 'utils/browser_history';
-import LoadingScreen from 'components/loading_screen.jsx';
+import LoadingScreen from 'components/loading_screen';
 import ConfirmModal from 'components/confirm_modal.jsx';
 import AbstractOAuthApp from '../abstract_oauth_app.jsx';
 
 const HEADER = {id: 'integrations.edit', defaultMessage: 'Edit'};
 const FOOTER = {id: 'update_incoming_webhook.update', defaultMessage: 'Update'};
+const LOADING = {id: 'update_incoming_webhook.updating', defaultMessage: 'Updating...'};
 
 export default class EditOAuthApp extends React.PureComponent {
     static propTypes = {
@@ -155,6 +156,7 @@ export default class EditOAuthApp extends React.PureComponent {
                 team={this.props.team}
                 header={HEADER}
                 footer={FOOTER}
+                loading={LOADING}
                 renderExtra={this.renderExtra()}
                 action={this.editOAuthApp}
                 serverError={this.state.serverError}

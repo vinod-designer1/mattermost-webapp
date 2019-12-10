@@ -8,11 +8,12 @@ import {FormattedMessage} from 'react-intl';
 import {memoizeResult} from 'mattermost-redux/utils/helpers';
 
 import Markdown from 'components/markdown';
-import GlobeIcon from 'components/svg/globe_icon';
-import LockIcon from 'components/svg/lock_icon';
+import GlobeIcon from 'components/widgets/icons/globe_icon';
+import LockIcon from 'components/widgets/icons/lock_icon';
+import ArchiveIcon from 'components/widgets/icons/archive_icon';
 
 import Constants from 'utils/constants.jsx';
-import {getSiteURL} from 'utils/url.jsx';
+import {getSiteURL} from 'utils/url';
 import * as Utils from 'utils/utils.jsx';
 
 const headerMarkdownOptions = {singleline: false, mentionHighlight: false};
@@ -39,8 +40,6 @@ export default class ChannelInfoModal extends React.PureComponent {
     constructor(props) {
         super(props);
 
-        this.onHide = this.onHide.bind(this);
-
         this.state = {show: true};
 
         this.getHeaderMarkdownOptions = memoizeResult((channelNamesMap) => (
@@ -48,12 +47,13 @@ export default class ChannelInfoModal extends React.PureComponent {
         ));
     }
 
-    onHide() {
+    onHide = () => {
         this.setState({show: false});
     }
 
     render() {
         let channel = this.props.channel;
+        const channelIsArchived = channel.delete_at !== 0;
         let channelIcon;
 
         if (!channel) {
@@ -70,7 +70,11 @@ export default class ChannelInfoModal extends React.PureComponent {
 
         const channelNamesMap = this.props.channel.props && this.props.channel.props.channel_mentions;
 
-        if (channel.type === 'O') {
+        if (channelIsArchived) {
+            channelIcon = (
+                <ArchiveIcon className='icon icon__archive'/>
+            );
+        } else if (channel.type === 'O') {
             channelIcon = (
                 <GlobeIcon className='icon icon__globe icon--body'/>
             );
@@ -131,13 +135,18 @@ export default class ChannelInfoModal extends React.PureComponent {
 
         return (
             <Modal
-                dialogClassName='about-modal'
+                dialogClassName='a11y__modal about-modal'
                 show={this.state.show}
                 onHide={this.onHide}
                 onExited={this.props.onHide}
+                role='dialog'
+                aria-labelledby='channelInfoModalLabel'
             >
                 <Modal.Header closeButton={true}>
-                    <Modal.Title>
+                    <Modal.Title
+                        componentClass='h1'
+                        id='channelInfoModalLabel'
+                    >
                         <FormattedMessage
                             id='channel_info.about'
                             defaultMessage='About'

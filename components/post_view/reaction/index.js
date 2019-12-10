@@ -3,15 +3,19 @@
 
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
-import {addReaction, removeReaction} from 'mattermost-redux/actions/posts';
+
+import {removeReaction} from 'mattermost-redux/actions/posts';
 import {getMissingProfilesByIds} from 'mattermost-redux/actions/users';
 import {getCurrentUserId, makeGetProfilesForReactions, getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {getChannel} from 'mattermost-redux/selectors/entities/channels';
+import {getCustomEmojisByName} from 'mattermost-redux/selectors/entities/emojis';
 import {getEmojiImageUrl} from 'mattermost-redux/utils/emoji_utils';
 import {haveIChannelPermission} from 'mattermost-redux/selectors/entities/roles';
 import Permissions from 'mattermost-redux/constants/permissions';
 import Constants from 'mattermost-redux/constants/general';
 import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
+
+import {addReaction} from 'actions/post_actions.jsx';
 
 import * as Emoji from 'utils/emoji.jsx';
 
@@ -30,7 +34,8 @@ function makeMapStateToProps() {
         if (Emoji.EmojiIndicesByAlias.has(ownProps.emojiName)) {
             emoji = Emoji.Emojis[Emoji.EmojiIndicesByAlias.get(ownProps.emojiName)];
         } else {
-            emoji = ownProps.emojis.get(ownProps.emojiName);
+            const emojis = getCustomEmojisByName(state);
+            emoji = emojis.get(ownProps.emojiName);
         }
 
         let emojiImageUrl = '';
@@ -38,10 +43,16 @@ function makeMapStateToProps() {
             emojiImageUrl = getEmojiImageUrl(emoji);
         }
         const channel = getChannel(state, ownProps.post.channel_id) || {};
+        const channelIsArchived = channel.delete_at !== 0;
         const teamId = channel.team_id;
 
-        const canAddReaction = checkReactionAction(state, teamId, ownProps.post.channel_id, channel.name, config, license, me, Permissions.REMOVE_REACTION);
-        const canRemoveReaction = checkReactionAction(state, teamId, ownProps.post.channel_id, channel.name, config, license, me, Permissions.ADD_REACTION);
+        let canAddReaction = false;
+        let canRemoveReaction = false;
+
+        if (!channelIsArchived) {
+            canAddReaction = checkReactionAction(state, teamId, ownProps.post.channel_id, channel.name, config, license, me, Permissions.REMOVE_REACTION);
+            canRemoveReaction = checkReactionAction(state, teamId, ownProps.post.channel_id, channel.name, config, license, me, Permissions.ADD_REACTION);
+        }
 
         return {
             profiles,
