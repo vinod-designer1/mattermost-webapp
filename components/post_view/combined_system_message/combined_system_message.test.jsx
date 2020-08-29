@@ -51,8 +51,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
 
     test('should match snapshot', () => {
         const wrapper = shallowWithIntl(
-            <CombinedSystemMessage {...baseProps}/>
-        ).dive();
+            <CombinedSystemMessage {...baseProps}/>,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -70,8 +70,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
         }];
         const props = {...baseProps, messageData, allUserIds};
         const wrapper = shallowWithIntl(
-            <CombinedSystemMessage {...props}/>
-        ).dive();
+            <CombinedSystemMessage {...props}/>,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -81,8 +81,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
             <CombinedSystemMessage
                 {...baseProps}
                 showJoinLeave={false}
-            />
-        ).dive();
+            />,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -100,8 +100,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
         }];
         const props = {...baseProps, messageData, allUserIds, showJoinLeave: false};
         const wrapper = shallowWithIntl(
-            <CombinedSystemMessage {...props}/>
-        ).dive();
+            <CombinedSystemMessage {...props}/>,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -122,8 +122,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
         }];
         const props = {...baseProps, messageData, allUserIds};
         const wrapper = shallowWithIntl(
-            <CombinedSystemMessage {...props}/>
-        ).dive();
+            <CombinedSystemMessage {...props}/>,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -139,8 +139,8 @@ describe('components/post_view/CombinedSystemMessage', () => {
         };
 
         const wrapper = shallowWithIntl(
-            <CombinedSystemMessage {...props}/>
-        ).dive();
+            <CombinedSystemMessage {...props}/>,
+        );
 
         wrapper.instance().loadUserProfiles([], []);
         expect(props.actions.getMissingProfilesByIds).toHaveBeenCalledTimes(0);

@@ -1,5 +1,6 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
+/* eslint-disable react/no-string-refs */
 
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -19,9 +20,8 @@ import {trackEvent} from 'actions/diagnostics_actions.jsx';
 import {t} from 'utils/i18n';
 import {localizeMessage} from 'utils/utils';
 
-import MarketplaceItem from './marketplace_item';
-
 import './marketplace_modal.scss';
+import MarketplaceList from './marketplace_list/marketplace_list';
 
 const MarketplaceTabs = {
     ALL_PLUGINS: 'allPlugins',
@@ -30,29 +30,6 @@ const MarketplaceTabs = {
 
 const SEARCH_TIMEOUT_MILLISECONDS = 200;
 
-// Plugins renders the list of plugins in a tab.
-export const Plugins = ({plugins}) => (
-    <div className='more-modal__list'>{plugins.map((p) => (
-        <MarketplaceItem
-            key={p.manifest.id}
-            id={p.manifest.id}
-            name={p.manifest.name}
-            description={p.manifest.description}
-            version={p.manifest.version}
-            isPrepackaged={false}
-            downloadUrl={p.download_url}
-            homepageUrl={p.homepage_url}
-            releaseNotesUrl={p.release_notes_url}
-            iconData={p.icon_data}
-            installedVersion={p.installed_version}
-        />
-    ))}</div>
-);
-
-Plugins.propTypes = {
-    plugins: PropTypes.array.isRequired,
-};
-
 // AllPlugins renders the contents of the all plugins tab.
 export const AllPlugins = ({plugins}) => {
     if (plugins.length === 0) {
@@ -60,7 +37,7 @@ export const AllPlugins = ({plugins}) => {
             <div className='no_plugins_div'>
                 <br/>
                 <PluginIcon className='icon__plugin'/>
-                <div className='margin-top x2 light'>
+                <div className='mt-3 light'>
                     <FormattedMessage
                         id='marketplace_modal.no_plugins'
                         defaultMessage='There are no plugins available at this time.'
@@ -70,7 +47,7 @@ export const AllPlugins = ({plugins}) => {
         );
     }
 
-    return <Plugins plugins={plugins}/>;
+    return <MarketplaceList plugins={plugins}/>;
 };
 
 AllPlugins.propTypes = {
@@ -84,14 +61,14 @@ export const InstalledPlugins = ({installedPlugins, changeTab}) => {
             <div className='no_plugins_div'>
                 <br/>
                 <PluginIcon className='icon__plugin'/>
-                <div className='margin-top x2 light'>
+                <div className='mt-3 light'>
                     <FormattedMessage
                         id='marketplace_modal.no_plugins_installed'
                         defaultMessage='You do not have any plugins installed.'
                     />
                 </div>
                 <button
-                    className='margin-top x3 style--none color--link'
+                    className='mt-5 style--none color--link'
                     onClick={() => changeTab(MarketplaceTabs.ALL_PLUGINS)}
                     data-testid='Install-Plugins-button'
                 >
@@ -104,7 +81,7 @@ export const InstalledPlugins = ({installedPlugins, changeTab}) => {
         );
     }
 
-    return <Plugins plugins={installedPlugins}/>;
+    return <MarketplaceList plugins={installedPlugins}/>;
 };
 
 InstalledPlugins.propTypes = {
@@ -113,7 +90,7 @@ InstalledPlugins.propTypes = {
 };
 
 // MarketplaceModal is the plugin marketplace.
-export class MarketplaceModal extends React.Component {
+export class MarketplaceModal extends React.PureComponent {
     static propTypes = {
         show: PropTypes.bool,
         plugins: PropTypes.array.isRequired,
@@ -217,11 +194,13 @@ export class MarketplaceModal extends React.Component {
                     className='error-bar'
                     id='error_bar'
                 >
-                    <FormattedMarkdownMessage
-                        id='app.plugin.marketplace_plugins.app_error'
-                        defaultMessage='Error connecting to the marketplace server. Please check your settings in the [System Console]({siteURL}/admin_console/plugins/plugin_management).'
-                        values={{siteURL: this.props.siteURL}}
-                    />
+                    <div className='error-bar__content'>
+                        <FormattedMarkdownMessage
+                            id='app.plugin.marketplace_plugins.app_error'
+                            defaultMessage='Error connecting to the marketplace server. Please check your settings in the [System Console]({siteURL}/admin_console/plugins/plugin_management).'
+                            values={{siteURL: this.props.siteURL}}
+                        />
+                    </div>
                 </div>
             );
         }
@@ -277,3 +256,4 @@ export class MarketplaceModal extends React.Component {
         );
     }
 }
+/* eslint-enable react/no-string-refs */

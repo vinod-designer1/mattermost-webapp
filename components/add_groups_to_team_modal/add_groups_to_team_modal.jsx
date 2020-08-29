@@ -18,7 +18,7 @@ import AddIcon from 'components/widgets/icons/fa_add_icon';
 const GROUPS_PER_PAGE = 50;
 const MAX_SELECTABLE_VALUES = 10;
 
-export default class AddGroupsToTeamModal extends React.Component {
+export default class AddGroupsToTeamModal extends React.PureComponent {
     static propTypes = {
         currentTeamName: PropTypes.string.isRequired,
         currentTeamId: PropTypes.string.isRequired,
@@ -57,17 +57,17 @@ export default class AddGroupsToTeamModal extends React.Component {
     componentDidMount() {
         Promise.all([
             this.props.actions.getGroupsNotAssociatedToTeam(this.props.currentTeamId, '', 0, GROUPS_PER_PAGE + 1),
-            this.props.actions.getAllGroupsAssociatedToTeam(this.props.currentTeamId),
+            this.props.actions.getAllGroupsAssociatedToTeam(this.props.currentTeamId, false, true),
         ]).then(() => {
             this.setGroupsLoadingState(false);
         });
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (this.props.searchTerm !== nextProps.searchTerm) {
+    componentDidUpdate(prevProps) {
+        if (this.props.searchTerm !== prevProps.searchTerm) {
             clearTimeout(this.searchTimeoutId);
 
-            const searchTerm = nextProps.searchTerm;
+            const searchTerm = this.props.searchTerm;
             if (searchTerm === '') {
                 return;
             }
@@ -78,7 +78,7 @@ export default class AddGroupsToTeamModal extends React.Component {
                     await this.props.actions.getGroupsNotAssociatedToTeam(this.props.currentTeamId, searchTerm);
                     this.setGroupsLoadingState(false);
                 },
-                Constants.SEARCH_TIMEOUT_MILLISECONDS
+                Constants.SEARCH_TIMEOUT_MILLISECONDS,
             );
         }
     }
@@ -244,6 +244,10 @@ export default class AddGroupsToTeamModal extends React.Component {
             groupsToShow = [...groupsToShow, ...this.props.includeGroups.filter(hasGroup)];
         }
 
+        groupsToShow = groupsToShow.map((group) => {
+            return {label: group.display_name, value: group.id, ...group};
+        });
+
         return (
             <Modal
                 id='addGroupsToTeamModal'
@@ -256,7 +260,7 @@ export default class AddGroupsToTeamModal extends React.Component {
                     <Modal.Title componentClass='h1'>
                         <FormattedMessage
                             id='add_groups_to_team.title'
-                            defaultMessage='Add New Groups To {teamName} Team'
+                            defaultMessage='Add New Groups to {teamName} Team'
                             values={{
                                 teamName: (
                                     <strong>{this.props.currentTeamName}</strong>

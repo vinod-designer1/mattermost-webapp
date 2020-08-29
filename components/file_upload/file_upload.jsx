@@ -565,15 +565,16 @@ class FileUpload extends PureComponent {
         this.setState({menuOpen: false});
     }
 
-    simulateInputClick = () => {
+    simulateInputClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         this.fileInput.current.click();
     }
 
     render() {
-        const isMobile = isMobileApp();
         const {formatMessage} = this.props.intl;
         let multiple = true;
-        if (isMobile) {
+        if (isMobileApp()) {
             // iOS WebViews don't upload videos properly in multiple mode
             multiple = false;
         }
@@ -597,10 +598,10 @@ class FileUpload extends PureComponent {
                         id='fileUploadButton'
                         aria-label={ariaLabel}
                         className='style--none post-action icon icon--attachment'
-                        onClick={!isMobile && this.simulateInputClick}
-                        onTouchEnd={isMobile && this.simulateInputClick}
+                        onClick={this.simulateInputClick}
+                        onTouchEnd={this.simulateInputClick}
                     >
-                        <AttachmentIcon/>
+                        <AttachmentIcon className='d-flex'/>
                     </button>
                     <input
                         id='fileUploadInput'
@@ -628,7 +629,9 @@ class FileUpload extends PureComponent {
                         }}
                     >
                         <a href='#'>
-                            <span className='margin-right'>{item.icon}</span>
+                            <span className='mr-2'>
+                                {item.icon}
+                            </span>
                             {item.text}
                         </a>
                     </li>
@@ -657,10 +660,11 @@ class FileUpload extends PureComponent {
                                 id='fileUploadButton'
                                 className='icon icon--attachment'
                             >
-                                <AttachmentIcon/>
+                                <AttachmentIcon className='d-flex'/>
                             </div>
                         </button>
                         <Menu
+                            id='fileUploadOptions'
                             openLeft={true}
                             openUp={true}
                             ariaLabel={formatMessage({id: 'file_upload.menuAriaLabel', defaultMessage: 'Upload type selector'})}
@@ -669,10 +673,12 @@ class FileUpload extends PureComponent {
                             <li>
                                 <a
                                     href='#'
-                                    onClick={!isMobile && this.simulateInputClick}
-                                    onTouchEnd={isMobile && this.simulateInputClick}
+                                    onClick={this.simulateInputClick}
+                                    onTouchEnd={this.simulateInputClick}
                                 >
-                                    <span className='margin-right'><i className='fa fa-laptop'/></span>
+                                    <span className='mr-2'>
+                                        <i className='fa fa-laptop'/>
+                                    </span>
                                     <FormattedMessage
                                         id='yourcomputer'
                                         defaultMessage='Your computer'
@@ -698,4 +704,6 @@ class FileUpload extends PureComponent {
     }
 }
 
-export default injectIntl(FileUpload, {withRef: true});
+const wrappedComponent = injectIntl(FileUpload, {forwardRef: true});
+wrappedComponent.displayName = 'injectIntl(FileUpload)';
+export default wrappedComponent;

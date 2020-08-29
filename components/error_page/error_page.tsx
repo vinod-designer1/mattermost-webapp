@@ -104,10 +104,12 @@ export default class ErrorPage extends React.PureComponent<Props> {
                 <Link to='/'>
                     <FormattedMessage
                         id='error.generic.link_login'
-                        defaultMessage='Back to login page'
+                        defaultMessage='Back to Login Page'
                     />
                 </Link>
             );
+        } else if (type === ErrorPageTypes.OAUTH_INVALID_PARAM || type === ErrorPageTypes.OAUTH_INVALID_REDIRECT_URL) {
+            backButton = null;
         } else {
             backButton = (
                 <Link to='/'>

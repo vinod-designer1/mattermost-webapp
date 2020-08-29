@@ -28,16 +28,16 @@ describe('components/post_view/combined_system_message/LastUsers', () => {
 
     test('should match snapshot', () => {
         const wrapper = shallowWithIntl(
-            <LastUsers {...baseProps}/>
-        ).dive();
+            <LastUsers {...baseProps}/>,
+        );
 
         expect(wrapper).toMatchSnapshot();
     });
 
     test('should match snapshot, expanded', () => {
         const wrapper = shallowWithIntl(
-            <LastUsers {...baseProps}/>
-        ).dive();
+            <LastUsers {...baseProps}/>,
+        );
 
         wrapper.setState({expand: true});
         expect(wrapper).toMatchSnapshot();
@@ -45,8 +45,8 @@ describe('components/post_view/combined_system_message/LastUsers', () => {
 
     test('should match state on handleOnClick', () => {
         const wrapper = shallowWithIntl(
-            <LastUsers {...baseProps}/>
-        ).dive();
+            <LastUsers {...baseProps}/>,
+        );
 
         wrapper.setState({expand: false});
         wrapper.instance().handleOnClick({preventDefault: jest.fn()});

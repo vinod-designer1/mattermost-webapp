@@ -18,10 +18,11 @@ import AddIcon from 'components/widgets/icons/fa_add_icon';
 const GROUPS_PER_PAGE = 50;
 const MAX_SELECTABLE_VALUES = 10;
 
-export default class AddGroupsToChannelModal extends React.Component {
+export default class AddGroupsToChannelModal extends React.PureComponent {
     static propTypes = {
         currentChannelName: PropTypes.string.isRequired,
         currentChannelId: PropTypes.string.isRequired,
+        teamID: PropTypes.string.isRequired,
         searchTerm: PropTypes.string.isRequired,
         groups: PropTypes.array.isRequired,
 
@@ -36,6 +37,8 @@ export default class AddGroupsToChannelModal extends React.Component {
             setModalSearchTerm: PropTypes.func.isRequired,
             linkGroupSyncable: PropTypes.func.isRequired,
             getAllGroupsAssociatedToChannel: PropTypes.func.isRequired,
+            getTeam: PropTypes.func.isRequired,
+            getAllGroupsAssociatedToTeam: PropTypes.func.isRequired,
         }).isRequired,
     }
 
@@ -56,18 +59,20 @@ export default class AddGroupsToChannelModal extends React.Component {
 
     componentDidMount() {
         Promise.all([
-            this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, '', 0, GROUPS_PER_PAGE + 1),
-            this.props.actions.getAllGroupsAssociatedToChannel(this.props.currentChannelId),
+            this.props.actions.getTeam(this.props.teamID),
+            this.props.actions.getAllGroupsAssociatedToTeam(this.props.teamID, false, true),
+            this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, '', 0, GROUPS_PER_PAGE + 1, true),
+            this.props.actions.getAllGroupsAssociatedToChannel(this.props.currentChannelId, false, true),
         ]).then(() => {
             this.setGroupsLoadingState(false);
         });
     }
 
-    UNSAFE_componentWillReceiveProps(nextProps) { // eslint-disable-line camelcase
-        if (this.props.searchTerm !== nextProps.searchTerm) {
+    componentDidUpdate(prevProps) {
+        if (this.props.searchTerm !== prevProps.searchTerm) {
             clearTimeout(this.searchTimeoutId);
 
-            const searchTerm = nextProps.searchTerm;
+            const searchTerm = this.props.searchTerm;
             if (searchTerm === '') {
                 return;
             }
@@ -75,10 +80,10 @@ export default class AddGroupsToChannelModal extends React.Component {
             this.searchTimeoutId = setTimeout(
                 async () => {
                     this.setGroupsLoadingState(true);
-                    await this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, searchTerm);
+                    await this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, searchTerm, null, null, true);
                     this.setGroupsLoadingState(false);
                 },
-                Constants.SEARCH_TIMEOUT_MILLISECONDS
+                Constants.SEARCH_TIMEOUT_MILLISECONDS,
             );
         }
     }
@@ -154,7 +159,7 @@ export default class AddGroupsToChannelModal extends React.Component {
     handlePageChange = (page, prevPage) => {
         if (page > prevPage) {
             this.setGroupsLoadingState(true);
-            this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, this.props.searchTerm, page, GROUPS_PER_PAGE + 1).then(() => {
+            this.props.actions.getGroupsNotAssociatedToChannel(this.props.currentChannelId, this.props.searchTerm, page, GROUPS_PER_PAGE + 1, true).then(() => {
                 this.setGroupsLoadingState(false);
             });
         }
@@ -243,6 +248,9 @@ export default class AddGroupsToChannelModal extends React.Component {
             const hasGroup = (og) => this.props.includeGroups.find((g) => g.id === og.id);
             groupsToShow = [...groupsToShow, ...this.props.includeGroups.filter(hasGroup)];
         }
+        groupsToShow = groupsToShow.map((group) => {
+            return {label: group.display_name, value: group.id, ...group};
+        });
 
         return (
             <Modal
@@ -256,7 +264,7 @@ export default class AddGroupsToChannelModal extends React.Component {
                     <Modal.Title>
                         <FormattedMessage
                             id='add_groups_to_channel.title'
-                            defaultMessage='Add New Groups To {channelName} Channel'
+                            defaultMessage='Add New Groups to {channelName} Channel'
                             values={{
                                 channelName: (
                                     <strong>{this.props.currentChannelName}</strong>

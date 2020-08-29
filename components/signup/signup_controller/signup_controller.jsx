@@ -11,7 +11,7 @@ import {browserHistory} from 'utils/browser_history';
 import * as GlobalActions from 'actions/global_actions.jsx';
 import logoImage from 'images/logo.png';
 import AnnouncementBar from 'components/announcement_bar';
-import BackButton from 'components/common/back_button.jsx';
+import BackButton from 'components/common/back_button';
 import FormError from 'components/form_error';
 import LocalizedIcon from 'components/localized_icon';
 
@@ -19,7 +19,7 @@ import LoadingScreen from 'components/loading_screen';
 import {Constants} from 'utils/constants';
 import {t} from 'utils/i18n';
 
-export default class SignupController extends React.Component {
+export default class SignupController extends React.PureComponent {
     static propTypes = {
         location: PropTypes.object,
         loggedIn: PropTypes.bool.isRequired,
@@ -168,7 +168,7 @@ export default class SignupController extends React.Component {
                             defaultMessage='Email and Password'
                         />
                     </span>
-                </Link>
+                </Link>,
             );
         }
 
@@ -188,7 +188,7 @@ export default class SignupController extends React.Component {
                             />
                         </span>
                     </span>
-                </a>
+                </a>,
             );
         }
 
@@ -208,7 +208,7 @@ export default class SignupController extends React.Component {
                             />
                         </span>
                     </span>
-                </a>
+                </a>,
             );
         }
 
@@ -228,7 +228,7 @@ export default class SignupController extends React.Component {
                             />
                         </span>
                     </span>
-                </a>
+                </a>,
             );
         }
 
@@ -262,7 +262,7 @@ export default class SignupController extends React.Component {
                             {LDAPText}
                         </span>
                     </span>
-                </Link>
+                </Link>,
             );
         }
 
@@ -290,7 +290,7 @@ export default class SignupController extends React.Component {
                             {this.props.samlLoginButtonText}
                         </span>
                     </span>
-                </Link>
+                </Link>,
             );
         }
 
@@ -368,7 +368,7 @@ export default class SignupController extends React.Component {
                                     id='web.root.signup_info'
                                 />
                             </h4>
-                            <div className='margin--extra'>
+                            <div className='mt-8'>
                                 <h5><strong>
                                     <FormattedMessage
                                         id='signup.title'

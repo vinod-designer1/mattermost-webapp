@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {CSSTransition} from 'react-transition-group';
-import {intlShape} from 'react-intl';
+import {injectIntl} from 'react-intl';
 
 import CloseIcon from 'components/widgets/icons/close_icon';
 import BackIcon from 'components/widgets/icons/back_icon';
@@ -20,19 +20,16 @@ type Props = {
     children: React.ReactNode;
     ariaLabel?: string;
     ariaLabelledBy?: string;
+    intl: any; // TODO This needs to be replaced with IntlShape once react-intl is upgraded
 };
 
-export default class FullScreenModal extends React.Component<Props> {
+class FullScreenModal extends React.PureComponent<Props> {
     private modal = React.createRef<HTMLDivElement>();
-
-    public static contextTypes = {
-        intl: intlShape.isRequired,
-    };
 
     public componentDidMount() {
         document.addEventListener('keydown', this.handleKeypress);
         document.addEventListener('focus', this.enforceFocus, true);
-        this.resetFocus();
+        this.enforceFocus();
     }
 
     public componentWillUnmount() {
@@ -40,18 +37,10 @@ export default class FullScreenModal extends React.Component<Props> {
         document.removeEventListener('focus', this.enforceFocus, true);
     }
 
-    private enforceFocus = () => {
+    public enforceFocus = () => {
         setTimeout(() => {
             const currentActiveElement = document.activeElement;
             if (this.modal && this.modal.current && !this.modal.current.contains(currentActiveElement)) {
-                this.modal.current.focus();
-            }
-        });
-    }
-
-    public resetFocus = () => {
-        setTimeout(() => {
-            if (this.modal && this.modal.current) {
                 this.modal.current.focus();
             }
         });
@@ -91,14 +80,14 @@ export default class FullScreenModal extends React.Component<Props> {
                             <button
                                 onClick={this.props.onGoBack}
                                 className='back'
-                                aria-label={this.context.intl.formatMessage({id: 'full_screen_modal.back', defaultMessage: 'Back'})}
+                                aria-label={this.props.intl.formatMessage({id: 'full_screen_modal.back', defaultMessage: 'Back'})}
                             >
                                 <BackIcon id='backIcon'/>
                             </button>}
                         <button
                             onClick={this.close}
                             className='close-x'
-                            aria-label={this.context.intl.formatMessage({id: 'full_screen_modal.close', defaultMessage: 'Close'})}
+                            aria-label={this.props.intl.formatMessage({id: 'full_screen_modal.close', defaultMessage: 'Close'})}
                         >
                             <CloseIcon id='closeIcon'/>
                         </button>
@@ -113,3 +102,7 @@ export default class FullScreenModal extends React.Component<Props> {
         );
     }
 }
+
+const wrappedComponent = injectIntl(FullScreenModal, {forwardRef: true});
+wrappedComponent.displayName = 'injectIntl(FullScreenModal)';
+export default wrappedComponent;

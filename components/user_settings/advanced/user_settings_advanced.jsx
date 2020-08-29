@@ -1,5 +1,6 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
+/* eslint-disable react/no-string-refs */
 
 import PropTypes from 'prop-types';
 import React from 'react';
@@ -11,7 +12,7 @@ import * as Utils from 'utils/utils.jsx';
 import {t} from 'utils/i18n';
 import SettingItemMax from 'components/setting_item_max.jsx';
 import SettingItemMin from 'components/setting_item_min';
-import ConfirmModal from 'components/confirm_modal.jsx';
+import ConfirmModal from 'components/confirm_modal';
 import BackIcon from 'components/widgets/icons/fa_back_icon';
 
 import JoinLeaveSection from './join_leave_section';
@@ -187,17 +188,17 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
             },
             mac: {
                 id: t('user.settings.advance.sendDesc.mac'),
-                defaultMessage: 'When enabled, CMD + ENTER will send the message and ENTER inserts a new line.',
+                defaultMessage: 'When enabled, ⌘ + ENTER will send the message and ENTER inserts a new line.',
             },
         };
         const title = {
             default: {
                 id: t('user.settings.advance.sendTitle'),
-                defaultMessage: 'Send messages on CTRL+ENTER',
+                defaultMessage: 'Send Messages on CTRL+ENTER',
             },
             mac: {
                 id: t('user.settings.advance.sendTitle.mac'),
-                defaultMessage: 'Send messages on CMD+ENTER',
+                defaultMessage: 'Send Messages on ⌘+ENTER',
             },
         };
         if (Utils.isMac()) {
@@ -306,7 +307,7 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
                                 </label>
                                 <br/>
                             </div>
-                            <div className='margin-top x3'>
+                            <div className='mt-5'>
                                 <FormattedMessage
                                     id='user.settings.advance.formattingDesc'
                                     defaultMessage='If enabled, posts will be formatted to create links, show emoji, style the text, and add line breaks. By default, this setting is enabled.'
@@ -490,7 +491,7 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
                                     {this.renderFeatureLabel(key)}
                                 </label>
                             </div>
-                        </div>
+                        </div>,
                     );
                 });
 
@@ -501,14 +502,14 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
                             id='user.settings.advance.preReleaseDesc'
                             defaultMessage="Check any pre-released features you'd like to preview.  You may also need to refresh the page before the setting will take effect."
                         />
-                    </div>
+                    </div>,
                 );
                 previewFeaturesSection = (
                     <SettingItemMax
                         title={
                             <FormattedMessage
                                 id='user.settings.advance.preReleaseTitle'
-                                defaultMessage='Preview pre-release features'
+                                defaultMessage='Preview Pre-release Features'
                             />
                         }
                         inputs={inputs}
@@ -521,7 +522,7 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
             } else {
                 previewFeaturesSection = (
                     <SettingItemMin
-                        title={Utils.localizeMessage('user.settings.advance.preReleaseTitle', 'Preview pre-release features')}
+                        title={Utils.localizeMessage('user.settings.advance.preReleaseTitle', 'Preview Pre-release Features')}
                         describe={
                             <FormattedMessage
                                 id='user.settings.advance.enabledFeatures'
@@ -677,3 +678,4 @@ export default class AdvancedSettingsDisplay extends React.PureComponent {
         );
     }
 }
+/* eslint-enable react/no-string-refs */

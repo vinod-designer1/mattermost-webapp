@@ -20,7 +20,7 @@ import {t} from 'utils/i18n.jsx';
 
 import './channels_input.scss';
 
-export default class ChannelsInput extends React.Component {
+export default class ChannelsInput extends React.PureComponent {
     static propTypes = {
         placeholder: PropTypes.string,
         ariaLabel: PropTypes.string.isRequired,
@@ -53,7 +53,7 @@ export default class ChannelsInput extends React.Component {
     getOptionValue = (channel) => channel.id
 
     handleInputChange = (inputValue, action) => {
-        if (action.action === 'input-blur') {
+        if (action.action === 'input-blur' && inputValue !== '') {
             for (const option of this.state.options) {
                 if (this.props.inputValue === option.name) {
                     this.onChange([...this.props.value, option]);
