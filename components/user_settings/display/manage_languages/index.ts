@@ -2,6 +2,7 @@
 // See LICENSE.txt for license information.
 import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
+
 import {updateMe} from 'mattermost-redux/actions/users';
 import {UserProfile} from 'mattermost-redux/types/users';
 import {ActionFunc, ActionResult} from 'mattermost-redux/types/actions';
@@ -15,7 +16,7 @@ type Actions = {
 function mapDispatchToProps(dispatch: Dispatch) {
     return {
         actions: bindActionCreators<ActionCreatorsMapObject<ActionFunc>, Actions>({
-            updateMe
+            updateMe,
         }, dispatch)};
 }
 

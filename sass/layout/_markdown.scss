@@ -1,4 +1,4 @@
-@charset 'UTF-8';
+@charset "UTF-8";
 
 h1 {
     font-size: 28px;
@@ -52,7 +52,7 @@ h6 {
 }
 
 #post-list,
-#rhsContent {
+#rhsContainer {
     .markdown-inline-img {
         -moz-force-broken-image-icon: 1;
         margin: 5px 2px;
@@ -171,8 +171,11 @@ h6 {
     position: relative;
 
     code {
+        background-color: inherit;
+        font-size: 13px;
         display: block;
         position: relative;
+        padding: 0;
         text-align: left;
     }
 
@@ -197,7 +200,7 @@ h6 {
     }
 
     .hljs {
-        border: 1px solid v(center-channel-color-20);
+        border: 1px solid rgba(v(center-channel-color-rgb), 0.2);
         border-radius: .25em;
         display: flex;
         font-size: 13px;
@@ -256,6 +259,10 @@ h6 {
     td {
         border: 1px solid #ddd;
         padding: 6px 13px;
+    }
+
+    a {
+        word-break: initial;
         white-space: nowrap;
     }
 
@@ -297,7 +304,7 @@ blockquote {
         @include opacity(.6);
         content: '\f10d';
         display: inline-block;
-        font-family: FontAwesome;
+        font-family: FontAwesome, sans-serif;
         font-size: 20px;
         font-style: normal;
         font-weight: normal;
@@ -315,11 +322,10 @@ pre {
 }
 
 code {
+    background-color: rgba(var(--center-channel-color-rgb), 0.1);
+
     // Reset styles from Bootstrap
-    background-color: inherit;
     color: inherit;
-    font-size: 100%;
-    padding: 0px;
 }
 
 .help {

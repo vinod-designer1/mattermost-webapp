@@ -7,6 +7,8 @@
 // - Use element ID when selecting an element. Create one if none.
 // ***************************************************************
 
+// Stage: @prod
+
 describe('Scroll', () => {
     before(() => {
         // # Create new team and new user and visit Town Square channel
@@ -29,7 +31,7 @@ describe('Scroll', () => {
 
         cy.get('.post-image').should('be.visible');
 
-        cy.postMessage('{enter}');
+        cy.get('#post_textbox').should('be.visible').clear().type('{enter}');
 
         // * Observe image preview is collapsed
         cy.findByLabelText('file thumbnail').should('not.exist');

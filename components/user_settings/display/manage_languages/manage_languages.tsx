@@ -4,6 +4,7 @@
 import React from 'react';
 import {FormattedMessage} from 'react-intl';
 import ReactSelect, {ValueType} from 'react-select';
+
 import {ActionResult} from 'mattermost-redux/types/actions';
 import {UserProfile} from 'mattermost-redux/types/users';
 
@@ -45,7 +46,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         const userLocale = props.locale;
         const selectedOption = {
             value: locales[userLocale].value,
-            label: locales[userLocale].name
+            label: locales[userLocale].name,
         };
         this.reactSelectContainer = React.createRef();
 
@@ -53,7 +54,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
             locale: props.locale,
             selectedOption,
             isSaving: false,
-            openMenu: false
+            openMenu: false,
         };
     }
 
@@ -62,7 +63,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         if (reactSelectContainer) {
             reactSelectContainer.addEventListener(
                 'keydown',
-                this.handleContainerKeyDown
+                this.handleContainerKeyDown,
             );
         }
     }
@@ -71,7 +72,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         if (this.reactSelectContainer.current) {
             this.reactSelectContainer.current.removeEventListener(
                 'keydown',
-                this.handleContainerKeyDown
+                this.handleContainerKeyDown,
             );
         }
     }
@@ -97,7 +98,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         if (selectedOption && 'value' in selectedOption) {
             this.setState({
                 locale: selectedOption.value,
-                selectedOption
+                selectedOption,
             });
         }
     };
@@ -108,7 +109,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         } else {
             this.submitUser({
                 ...this.props.user,
-                locale: this.state.locale
+                locale: this.state.locale,
             });
         }
     };
@@ -164,7 +165,7 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
                 return {
                     value: locales[l].value as string,
                     name: locales[l].name,
-                    order: locales[l].order
+                    order: locales[l].order,
                 };
             }).
             sort((a, b) => a.order - b.order);
@@ -176,8 +177,8 @@ export default class ManageLanguage extends React.PureComponent<Props, State> {
         const reactStyles = {
             menuPortal: (provided: React.CSSProperties) => ({
                 ...provided,
-                zIndex: 9999
-            })
+                zIndex: 9999,
+            }),
         };
 
         const input = (

@@ -19,6 +19,23 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
         className="form-horizontal"
         role="form"
       >
+        <RenewLicenseCard
+          isDisabled={false}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
         <div
           className="form-group"
         >
@@ -28,7 +45,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -49,6 +65,7 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
                   <button
                     className="btn btn-primary"
                     onClick={[Function]}
+                    type="button"
                   >
                     <LoadingWrapper
                       loading={false}
@@ -57,7 +74,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
                       <FormattedMessage
                         defaultMessage="Restart Server"
                         id="admin.license.enterprise.restart"
-                        values={Object {}}
                       />
                     </LoadingWrapper>
                   </button>
@@ -75,7 +91,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -103,7 +118,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen a
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div
@@ -150,6 +164,23 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
         className="form-horizontal"
         role="form"
       >
+        <RenewLicenseCard
+          isDisabled={false}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
         <div
           className="form-group"
         >
@@ -159,7 +190,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -174,6 +204,7 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
                   <button
                     className="btn btn-primary"
                     onClick={[Function]}
+                    type="button"
                   >
                     <LoadingWrapper
                       loading={true}
@@ -192,10 +223,17 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
                       <FormattedMessage
                         defaultMessage="Upgrade to Enterprise Edition"
                         id="admin.license.enterprise.upgrade"
-                        values={Object {}}
                       />
                     </LoadingWrapper>
                   </button>
+                </p>
+                <p
+                  className="upgrade-legal-terms"
+                >
+                  <injectIntl(FormattedMarkdownMessage)
+                    defaultMessage="By clicking **Upgrade to Enterprise Edition**, I agree to the terms of the Mattermost Enterprise Edition License."
+                    id="admin.license.enterprise.upgrade.accept-terms"
+                  />
                 </p>
               </div>
             </div>
@@ -210,7 +248,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -238,7 +275,6 @@ exports[`components/admin_console/license_settings/LicenseSettings load screen w
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div
@@ -285,6 +321,23 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
         className="form-horizontal"
         role="form"
       >
+        <RenewLicenseCard
+          isDisabled={false}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
         <div
           className="form-group"
         >
@@ -294,7 +347,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -312,7 +364,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -336,21 +387,21 @@ Your subscription details are as follows:
               <br />
               License issued: 
               <FormattedDate
-                value={1970-01-01T00:02:03.456Z}
+                value={2018-02-04T03:24:03.650Z}
               />
                
               <FormattedTime
-                value={1970-01-01T00:02:03.456Z}
+                value={2018-02-04T03:24:03.650Z}
               />
               <br />
               Start date of license: 
               <FormattedDate
-                value={1970-01-01T00:10:54.321Z}
+                value={2018-02-04T03:24:03.650Z}
               />
               <br />
               Expiry date of license: 
               <FormattedDate
-                value={1970-01-01T00:10:54.321Z}
+                value={2021-05-06T21:10:43.650Z}
               />
               <br />
               <br />
@@ -364,6 +415,7 @@ Your subscription details are as follows:
               </a>
                and 
               <a
+                data-testid="privacyPolicyLink"
                 href="https://about.mattermost.com/default-privacy-policy/"
                 rel="noopener noreferrer"
                 target="_blank"
@@ -382,7 +434,6 @@ Your subscription details are as follows:
             <FormattedMessage
               defaultMessage="License Key: "
               id="admin.license.key"
-              values={Object {}}
             />
           </label>
           <div
@@ -390,13 +441,180 @@ Your subscription details are as follows:
           >
             <button
               className="btn btn-danger"
+              data-testid="remove-button"
+              disabled={false}
               id="remove-button"
               onClick={[Function]}
+              type="button"
             >
               <FormattedMessage
                 defaultMessage="Remove Enterprise License and Downgrade Server"
                 id="admin.license.keyRemove"
-                values={Object {}}
+              />
+            </button>
+            <br />
+            <br />
+            <p
+              className="help-text"
+            >
+              If you migrate servers you may need to remove your license key to install it elsewhere. You can remove the key here, which will revert functionality to that of Team Edition.
+            </p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`components/admin_console/license_settings/LicenseSettings should match snapshot enterprise build with license and isDisabled set to true 1`] = `
+<div
+  className="wrapper--fixed"
+>
+  <FormattedAdminHeader
+    defaultMessage="Edition and License"
+    id="admin.license.title"
+    values={Object {}}
+  />
+  <div
+    className="admin-console__wrapper"
+  >
+    <div
+      className="admin-console__content"
+    >
+      <form
+        className="form-horizontal"
+        role="form"
+      >
+        <RenewLicenseCard
+          isDisabled={true}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="Edition: "
+              id="admin.license.edition"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            Mattermost Enterprise Edition. Enterprise features on this server have been unlocked with a license key and a valid subscription.
+          </div>
+        </div>
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="License: "
+              id="admin.license.type"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            <div>
+              <p>
+                This software is offered under a commercial license.
+
+See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. See NOTICE.txt for information about open source software used in this system.
+
+Your subscription details are as follows:
+              </p>
+              Name: LicenseName
+              <br />
+              Company or organization name: Mattermost Inc.
+              <br />
+              Edition: Mattermost Enterprise Edition SkuName
+              <br />
+              Number of users: 100
+              <br />
+              License issued: 
+              <FormattedDate
+                value={2018-02-04T03:24:03.650Z}
+              />
+               
+              <FormattedTime
+                value={2018-02-04T03:24:03.650Z}
+              />
+              <br />
+              Start date of license: 
+              <FormattedDate
+                value={2018-02-04T03:24:03.650Z}
+              />
+              <br />
+              Expiry date of license: 
+              <FormattedDate
+                value={2021-05-06T21:10:43.650Z}
+              />
+              <br />
+              <br />
+              See also 
+              <a
+                href="https://about.mattermost.com/enterprise-edition-terms/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Enterprise Edition Terms of Service
+              </a>
+               and 
+              <a
+                data-testid="privacyPolicyLink"
+                href="https://about.mattermost.com/default-privacy-policy/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Privacy Policy.
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="License Key: "
+              id="admin.license.key"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            <button
+              className="btn btn-danger"
+              data-testid="remove-button"
+              disabled={true}
+              id="remove-button"
+              onClick={[Function]}
+              type="button"
+            >
+              <FormattedMessage
+                defaultMessage="Remove Enterprise License and Downgrade Server"
+                id="admin.license.keyRemove"
               />
             </button>
             <br />
@@ -433,6 +651,23 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
         className="form-horizontal"
         role="form"
       >
+        <RenewLicenseCard
+          isDisabled={false}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
         <div
           className="form-group"
         >
@@ -442,7 +677,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -460,7 +694,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -488,21 +721,21 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               <br />
               License issued: 
               <FormattedDate
-                value={1970-01-01T00:02:03.456Z}
+                value={2018-02-04T03:24:03.650Z}
               />
                
               <FormattedTime
-                value={1970-01-01T00:02:03.456Z}
+                value={2018-02-04T03:24:03.650Z}
               />
               <br />
               Start date of license: 
               <FormattedDate
-                value={1970-01-01T00:10:54.321Z}
+                value={2018-02-04T03:24:03.650Z}
               />
               <br />
               Expiry date of license: 
               <FormattedDate
-                value={1970-01-01T00:10:54.321Z}
+                value={2021-05-06T21:10:43.650Z}
               />
               <br />
               <br />
@@ -516,6 +749,7 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               </a>
                and 
               <a
+                data-testid="privacyPolicyLink"
                 href="https://about.mattermost.com/default-privacy-policy/"
                 rel="noopener noreferrer"
                 target="_blank"
@@ -534,7 +768,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License Key: "
               id="admin.license.key"
-              values={Object {}}
             />
           </label>
           <div
@@ -542,13 +775,15 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
           >
             <button
               className="btn btn-danger"
+              data-testid="remove-button"
+              disabled={false}
               id="remove-button"
               onClick={[Function]}
+              type="button"
             >
               <FormattedMessage
                 defaultMessage="Remove Enterprise License and Downgrade Server"
                 id="admin.license.keyRemove"
-                values={Object {}}
               />
             </button>
             <br />
@@ -569,7 +804,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div
@@ -589,6 +823,162 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                 EXCEPT AS OTHERWISE SET FORTH IN A BINDING WRITTEN AGREEMENT BETWEEN YOU AND MATTERMOST, THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               </p>
             </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`components/admin_console/license_settings/LicenseSettings should match snapshot enterprise build with trial license 1`] = `
+<div
+  className="wrapper--fixed"
+>
+  <FormattedAdminHeader
+    defaultMessage="Edition and License"
+    id="admin.license.title"
+    values={Object {}}
+  />
+  <div
+    className="admin-console__wrapper"
+  >
+    <div
+      className="admin-console__content"
+    >
+      <form
+        className="form-horizontal"
+        role="form"
+      >
+        <TrialLicenseCard
+          license={
+            Object {
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1617714643650",
+              "StartsAt": "1617714643650",
+            }
+          }
+        />
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="Edition: "
+              id="admin.license.edition"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            Mattermost Enterprise Edition. Enterprise features on this server have been unlocked with a license key and a valid subscription.
+          </div>
+        </div>
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="License: "
+              id="admin.license.type"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            <div>
+              <p>
+                This software is offered under a commercial license.
+
+See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. See NOTICE.txt for information about open source software used in this system.
+
+Your subscription details are as follows:
+              </p>
+              Name: undefined
+              <br />
+              Company or organization name: undefined
+              <br />
+              Number of users: undefined
+              <br />
+              License issued: 
+              <FormattedDate
+                value={2021-04-06T13:10:43.650Z}
+              />
+               
+              <FormattedTime
+                value={2021-04-06T13:10:43.650Z}
+              />
+              <br />
+              Start date of license: 
+              <FormattedDate
+                value={2021-04-06T13:10:43.650Z}
+              />
+              <br />
+              Expiry date of license: 
+              <FormattedDate
+                value={2021-05-06T21:10:43.650Z}
+              />
+              <br />
+              <br />
+              See also 
+              <a
+                href="https://about.mattermost.com/enterprise-edition-terms/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Enterprise Edition Terms of Service
+              </a>
+               and 
+              <a
+                data-testid="privacyPolicyLink"
+                href="https://about.mattermost.com/default-privacy-policy/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Privacy Policy.
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          className="form-group"
+        >
+          <label
+            className="control-label col-sm-4"
+          >
+            <FormattedMessage
+              defaultMessage="License Key: "
+              id="admin.license.key"
+            />
+          </label>
+          <div
+            className="col-sm-8"
+          >
+            <button
+              className="btn btn-danger"
+              data-testid="remove-button"
+              disabled={false}
+              id="remove-button"
+              onClick={[Function]}
+              type="button"
+            >
+              <FormattedMessage
+                defaultMessage="Remove Enterprise License and Downgrade Server"
+                id="admin.license.keyRemove"
+              />
+            </button>
+            <br />
+            <br />
+            <p
+              className="help-text"
+            >
+              If you migrate servers you may need to remove your license key to install it elsewhere. You can remove the key here, which will revert functionality to that of Team Edition.
+            </p>
           </div>
         </div>
       </form>
@@ -625,7 +1015,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -638,7 +1027,9 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               >
                 <button
                   className="btn btn-primary"
+                  disabled={false}
                   onClick={[Function]}
+                  type="button"
                 >
                   <LoadingWrapper
                     loading={false}
@@ -647,7 +1038,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                     <FormattedMessage
                       defaultMessage="Start trial"
                       id="admin.license.trial-request.submit"
-                      values={Object {}}
                     />
                   </LoadingWrapper>
                 </button>
@@ -672,7 +1062,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -692,7 +1081,6 @@ See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. S
             <FormattedMessage
               defaultMessage="License Key: "
               id="admin.license.key"
-              values={Object {}}
             />
           </label>
           <div
@@ -703,15 +1091,16 @@ See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. S
             >
               <button
                 className="btn btn-primary"
+                type="button"
               >
                 <FormattedMessage
                   defaultMessage="Choose File"
                   id="admin.license.choose"
-                  values={Object {}}
                 />
               </button>
               <input
                 accept=".mattermost-license"
+                disabled={false}
                 onChange={[Function]}
                 type="file"
               />
@@ -725,7 +1114,6 @@ See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. S
               <FormattedMessage
                 defaultMessage="Upload"
                 id="admin.license.upload"
-                values={Object {}}
               />
             </button>
             <div
@@ -734,7 +1122,6 @@ See ENTERPRISE-EDITION-LICENSE.txt in your root install directory for details. S
               <FormattedMessage
                 defaultMessage="No file uploaded"
                 id="admin.license.noFile"
-                values={Object {}}
               />
             </div>
             <br />
@@ -782,7 +1169,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -795,7 +1181,9 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               >
                 <button
                   className="btn btn-primary"
+                  disabled={false}
                   onClick={[Function]}
+                  type="button"
                 >
                   <LoadingWrapper
                     loading={false}
@@ -804,7 +1192,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                     <FormattedMessage
                       defaultMessage="Start trial"
                       id="admin.license.trial-request.submit"
-                      values={Object {}}
                     />
                   </LoadingWrapper>
                 </button>
@@ -829,7 +1216,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -854,7 +1240,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License Key: "
               id="admin.license.key"
-              values={Object {}}
             />
           </label>
           <div
@@ -865,15 +1250,16 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             >
               <button
                 className="btn btn-primary"
+                type="button"
               >
                 <FormattedMessage
                   defaultMessage="Choose File"
                   id="admin.license.choose"
-                  values={Object {}}
                 />
               </button>
               <input
                 accept=".mattermost-license"
+                disabled={false}
                 onChange={[Function]}
                 type="file"
               />
@@ -887,7 +1273,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               <FormattedMessage
                 defaultMessage="Upload"
                 id="admin.license.upload"
-                values={Object {}}
               />
             </button>
             <div
@@ -896,7 +1281,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
               <FormattedMessage
                 defaultMessage="No file uploaded"
                 id="admin.license.noFile"
-                values={Object {}}
               />
             </div>
             <br />
@@ -919,7 +1303,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div
@@ -966,6 +1349,23 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
         className="form-horizontal"
         role="form"
       >
+        <RenewLicenseCard
+          isDisabled={false}
+          isLicenseExpired={false}
+          license={
+            Object {
+              "Company": "Mattermost Inc.",
+              "ExpiresAt": "1620335443650",
+              "IsLicensed": "true",
+              "IssuedAt": "1517714643650",
+              "Name": "LicenseName",
+              "SkuShortName": "SkuName",
+              "StartsAt": "1517714643650",
+              "Users": "100",
+            }
+          }
+          totalUsers={10}
+        />
         <div
           className="form-group"
         >
@@ -975,7 +1375,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -990,6 +1389,7 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                   <button
                     className="btn btn-primary"
                     onClick={[Function]}
+                    type="button"
                   >
                     <LoadingWrapper
                       loading={false}
@@ -1008,10 +1408,17 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                       <FormattedMessage
                         defaultMessage="Upgrade to Enterprise Edition"
                         id="admin.license.enterprise.upgrade"
-                        values={Object {}}
                       />
                     </LoadingWrapper>
                   </button>
+                </p>
+                <p
+                  className="upgrade-legal-terms"
+                >
+                  <injectIntl(FormattedMarkdownMessage)
+                    defaultMessage="By clicking **Upgrade to Enterprise Edition**, I agree to the terms of the Mattermost Enterprise Edition License."
+                    id="admin.license.enterprise.upgrade.accept-terms"
+                  />
                 </p>
               </div>
             </div>
@@ -1026,7 +1433,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -1054,7 +1460,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div
@@ -1110,7 +1515,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Edition: "
               id="admin.license.edition"
-              values={Object {}}
             />
           </label>
           <div
@@ -1125,6 +1529,7 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                   <button
                     className="btn btn-primary"
                     onClick={[Function]}
+                    type="button"
                   >
                     <LoadingWrapper
                       loading={false}
@@ -1143,10 +1548,17 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
                       <FormattedMessage
                         defaultMessage="Upgrade to Enterprise Edition"
                         id="admin.license.enterprise.upgrade"
-                        values={Object {}}
                       />
                     </LoadingWrapper>
                   </button>
+                </p>
+                <p
+                  className="upgrade-legal-terms"
+                >
+                  <injectIntl(FormattedMarkdownMessage)
+                    defaultMessage="By clicking **Upgrade to Enterprise Edition**, I agree to the terms of the Mattermost Enterprise Edition License."
+                    id="admin.license.enterprise.upgrade.accept-terms"
+                  />
                 </p>
               </div>
             </div>
@@ -1161,7 +1573,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="License: "
               id="admin.license.type"
-              values={Object {}}
             />
           </label>
           <div
@@ -1189,7 +1600,6 @@ exports[`components/admin_console/license_settings/LicenseSettings should match 
             <FormattedMessage
               defaultMessage="Enterprise Edition License:"
               id="admin.license.enterprise-edition-license"
-              values={Object {}}
             />
           </label>
           <div

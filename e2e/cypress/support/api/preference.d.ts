@@ -16,7 +16,7 @@
 // ***************************************************************
 
 declare namespace Cypress {
-    interface Chainable<Subject = any> {
+    interface Chainable {
 
         // *******************************************************************************
         // Preferences
@@ -34,6 +34,17 @@ declare namespace Cypress {
          *   cy.apiSaveUserPreference([{user_id: 'user-id', category: 'display_settings', name: 'channel_display_mode', value: 'full'}], 'user-id');
          */
         apiSaveUserPreference(preferences: PreferenceType[], userId: string): Chainable<Response>;
+
+        /**
+         * Get the full list of the user's preferences.
+         * See https://api.mattermost.com/#tag/preferences/paths/~1users~1{user_id}~1preferences/get
+         * @param {string} userId - User ID
+         * @returns {Response} response: Cypress-chainable response which should have a list of preference objects
+         *
+         * @example
+         *   cy.apiGetUserPreference('user-id');
+         */
+        apiGetUserPreference(userId: string): Chainable<Response>;
 
         /**
          * Save clock display mode to 24-hour preference.
@@ -60,15 +71,16 @@ declare namespace Cypress {
         apiSaveCloudOnboardingPreference(userId: string, name: string, value: string): Chainable<Response>;
 
         /**
-         * Save hiding of What's New modal.
+         * Save DM channel show preference.
          * See https://api.mattermost.com/#tag/preferences/paths/~1users~1{user_id}~1preferences/put
          * @param {string} userId - User ID
-         * @param {string} value - options are 'true' to hide or 'false' to show
+         * @param {string} otherUserId - Other user in a DM channel
+         * @param {string} value - options are 'true' or 'false'
          * @returns {Response} response: Cypress-chainable response which should have successful HTTP status of 200 OK to continue or pass.
          *
          * @example
-         *   cy.apiHideSidebarWhatsNewModalPreference('user-id', 'true');
+         *   cy.apiSaveDirectChannelShowPreference('user-id', 'other-user-id', 'false');
          */
-        apiHideSidebarWhatsNewModalPreference(userId: string, name: string): Chainable<Response>;
+        apiSaveDirectChannelShowPreference(userId: string, otherUserId: string, value: string): Chainable<Response>;
     }
 }

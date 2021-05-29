@@ -4,20 +4,35 @@
 import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 
-import {getConfig, getLicense} from 'mattermost-redux/selectors/entities/general';
-import {getMyTeams, getJoinableTeamIds, getCurrentTeam} from 'mattermost-redux/selectors/entities/teams';
+import {
+    getConfig,
+    getLicense,
+    getFirstAdminVisitMarketplaceStatus,
+    getSubscriptionStats as selectSubscriptionStats,
+} from 'mattermost-redux/selectors/entities/general';
+import {
+    getMyTeams,
+    getJoinableTeamIds,
+    getCurrentTeam,
+} from 'mattermost-redux/selectors/entities/teams';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {haveITeamPermission, haveICurrentTeamPermission, haveISystemPermission} from 'mattermost-redux/selectors/entities/roles';
+import {getSubscriptionStats} from 'mattermost-redux/actions/cloud';
 import {Permissions} from 'mattermost-redux/constants';
 
 import {RHSStates} from 'utils/constants';
+import {getRemainingDaysFromFutureTimestamp} from 'utils/utils.jsx';
 
 import {unhideNextSteps} from 'actions/views/next_steps';
 import {showMentions, showFlaggedPosts, closeRightHandSide, closeMenu as closeRhsMenu} from 'actions/views/rhs';
 import {openModal} from 'actions/views/modals';
 import {getRhsState} from 'selectors/rhs';
 
-import {nextStepsNotFinished} from 'components/next_steps_view/steps';
+import {
+    showOnboarding,
+    showNextStepsTips,
+    showNextSteps,
+} from 'components/next_steps_view/steps';
 
 import MainMenu from './main_menu.jsx';
 
@@ -25,7 +40,6 @@ function mapStateToProps(state) {
     const config = getConfig(state);
     const currentTeam = getCurrentTeam(state);
     const currentUser = getCurrentUser(state);
-    const license = getLicense(state);
 
     const appDownloadLink = config.AppDownloadLink;
     const enableCommands = config.EnableCommands === 'true';
@@ -34,8 +48,6 @@ function mapStateToProps(state) {
     const enableIncomingWebhooks = config.EnableIncomingWebhooks === 'true';
     const enableOAuthServiceProvider = config.EnableOAuthServiceProvider === 'true';
     const enableOutgoingWebhooks = config.EnableOutgoingWebhooks === 'true';
-    const enableUserCreation = config.EnableUserCreation === 'true';
-    const enableEmailInvitations = config.EnableEmailInvitations === 'true';
     const enablePluginMarketplace = config.PluginsEnabled === 'true' && config.EnableMarketplace === 'true';
     const experimentalPrimaryTeam = config.ExperimentalPrimaryTeam;
     const helpLink = config.HelpLink;
@@ -59,6 +71,10 @@ function mapStateToProps(state) {
     const joinableTeams = getJoinableTeamIds(state);
     const moreTeamsToJoin = joinableTeams && joinableTeams.length > 0;
     const rhsState = getRhsState(state);
+    const isCloud = getLicense(state).Cloud === 'true';
+    const subscription = state.entities.cloud.subscription;
+    const isFreeTrial = subscription?.is_free_trial === 'true';
+    const daysLeftOnTrial = getRemainingDaysFromFutureTimestamp(subscription?.trial_end_at);
 
     return {
         appDownloadLink,
@@ -69,8 +85,6 @@ function mapStateToProps(state) {
         enableOAuthServiceProvider,
         enableOutgoingWebhooks,
         canManageSystemBots,
-        enableUserCreation,
-        enableEmailInvitations,
         enablePluginMarketplace,
         experimentalPrimaryTeam,
         helpLink,
@@ -81,12 +95,19 @@ function mapStateToProps(state) {
         siteName,
         teamId: currentTeam.id,
         teamName: currentTeam.name,
-        teamType: currentTeam.type,
         currentUser,
         isMentionSearch: rhsState === RHSStates.MENTION,
         teamIsGroupConstrained: Boolean(currentTeam.group_constrained),
-        isLicensedForLDAPGroups: state.entities.general.license.LDAPGroups === 'true',
-        showGettingStarted: !state.views.nextSteps.show && nextStepsNotFinished(state) && license.Cloud === 'true',
+        isLicensedForLDAPGroups:
+            state.entities.general.license.LDAPGroups === 'true',
+        showGettingStarted: showOnboarding(state),
+        showNextStepsTips: showNextStepsTips(state),
+        isFreeTrial,
+        daysLeftOnTrial,
+        showNextSteps: showNextSteps(state),
+        isCloud,
+        subscriptionStats: selectSubscriptionStats(state), // subscriptionStats are loaded in actions/views/root
+        firstAdminVisitMarketplaceStatus: getFirstAdminVisitMarketplaceStatus(state),
     };
 }
 
@@ -99,6 +120,7 @@ function mapDispatchToProps(dispatch) {
             closeRightHandSide,
             closeRhsMenu,
             unhideNextSteps,
+            getSubscriptionStats,
         }, dispatch),
     };
 }
